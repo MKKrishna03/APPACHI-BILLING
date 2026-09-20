@@ -98,6 +98,11 @@ export default function RateBoard({
           }}
         >
           Rate Board
+          {current && (
+            <span className="ml-2 text-amber-100/70">
+              G ₹{current.gold_rate} · S ₹{current.silver_rate}
+            </span>
+          )}
         </button>
       )}
 
