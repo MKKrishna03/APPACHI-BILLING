@@ -1,14 +1,20 @@
 import { NextResponse } from "next/server";
 import { pool } from "@/lib/db";
-import { getMonthPrefix } from "@/lib/quotationNumber";
+import { nextQuotationNumber } from "@/lib/quotationNumber";
+import { nextScrapNumber } from "@/lib/scrapNumber";
 
 export async function GET() {
   const { rows } = await pool.query(
     `select q.*,
-            coalesce(json_agg(i.* order by i.created_at) filter (where i.id is not null), '[]') as items
+            coalesce(
+              (select json_agg(i.* order by i.created_at) from quotation_items i where i.quotation_id = q.id),
+              '[]'
+            ) as items,
+            coalesce(
+              (select json_agg(s.* order by s.created_at) from scraps s where s.quotation_id = q.id),
+              '[]'
+            ) as scraps
      from quotations q
-     left join quotation_items i on i.quotation_id = q.id
-     group by q.id
      order by q.created_at desc`
   );
   return NextResponse.json(rows);
@@ -16,7 +22,7 @@ export async function GET() {
 
 export async function POST(request: Request) {
   const body = await request.json();
-  const { items, gst, total, less, netTotal } = body;
+  const { items, gst, total, less, netTotal, scraps } = body;
 
   if (!Array.isArray(items) || items.length === 0) {
     return NextResponse.json(
@@ -25,17 +31,11 @@ export async function POST(request: Request) {
     );
   }
 
-  const prefix = getMonthPrefix();
   const client = await pool.connect();
   try {
     await client.query("BEGIN");
 
-    const { rows: countRows } = await client.query(
-      "select count(*) as count from quotations where quotation_number like $1",
-      [`${prefix}/%`]
-    );
-    const nextSeq = Number(countRows[0].count) + 1;
-    const quotationNumber = `${prefix}/${String(nextSeq).padStart(2, "0")}`;
+    const quotationNumber = await nextQuotationNumber(client);
 
     const { rows: qRows } = await client.query(
       `insert into quotations (quotation_number, gst, total, less, net_total, revision)
@@ -66,6 +66,17 @@ export async function POST(request: Request) {
           item.amount,
         ]
       );
+    }
+
+    if (Array.isArray(scraps)) {
+      for (const scrap of scraps) {
+        const scrapNumber = await nextScrapNumber(client);
+        await client.query(
+          `insert into scraps (scrap_number, quotation_id, category, scrap_name, scrap_weight, status)
+           values ($1,$2,$3,$4,$5,'pending')`,
+          [scrapNumber, quotation.id, scrap.category, scrap.scrapName, scrap.scrapWeight]
+        );
+      }
     }
 
     await client.query("COMMIT");

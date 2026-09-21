@@ -56,11 +56,40 @@ create table if not exists scraps (
   scrap_name text not null,
   scrap_weight numeric not null,
   scrap_less numeric not null default 0,
-  scrap_weight_after_less numeric not null,
-  rate numeric not null,
-  total numeric not null,
+  scrap_weight_after_less numeric,
+  rate numeric,
+  total numeric,
   created_at timestamptz not null default now()
 );
+
+alter table scraps alter column scrap_weight_after_less drop not null;
+alter table scraps alter column rate drop not null;
+alter table scraps alter column total drop not null;
+alter table scraps add column if not exists quotation_id uuid references quotations(id) on delete set null;
+alter table scraps add column if not exists status text not null default 'estimated' check (status in ('pending', 'estimated'));
+alter table scraps drop constraint if exists scraps_status_check;
+alter table scraps add constraint scraps_status_check check (status in ('pending', 'estimated', 'locked'));
+
+alter table scraps add column if not exists scrap_number text;
+with numbered as (
+  select id,
+         'SC-' || upper(to_char(created_at, 'mon')) || to_char(created_at, 'YY') || '/' ||
+           lpad(
+             row_number() over (
+               partition by upper(to_char(created_at, 'mon')) || to_char(created_at, 'YY')
+               order by created_at
+             )::text,
+             2, '0'
+           ) as generated_number
+  from scraps
+  where scrap_number is null
+)
+update scraps
+set scrap_number = numbered.generated_number
+from numbered
+where scraps.id = numbered.id;
+alter table scraps alter column scrap_number set not null;
+create unique index if not exists scraps_scrap_number_key on scraps (scrap_number);
 
 create table if not exists rate_history (
   id uuid primary key default gen_random_uuid(),

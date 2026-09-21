@@ -2,18 +2,42 @@
 
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
+import Link from "next/link";
+
+type Status = "pending" | "estimated" | "locked";
 
 function parseNum(value: string) {
   const n = parseFloat(value);
   return isNaN(n) ? 0 : n;
 }
 
+const STATUS_STYLE: Record<Status, { bg: string; color: string; label: string }> = {
+  pending: {
+    bg: "color-mix(in srgb, var(--accent) 15%, transparent)",
+    color: "var(--accent)",
+    label: "Pending Estimation",
+  },
+  estimated: {
+    bg: "color-mix(in srgb, #2f9e44 15%, transparent)",
+    color: "#2f9e44",
+    label: "Estimated",
+  },
+  locked: {
+    bg: "color-mix(in srgb, var(--primary) 15%, transparent)",
+    color: "var(--primary)",
+    label: "Locked (Final)",
+  },
+};
+
 export default function EditScrapPage() {
   const { id } = useParams<{ id: string }>();
   const router = useRouter();
 
   const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
+  const [saving, setSaving] = useState<"draft" | "final" | null>(null);
+  const [status, setStatus] = useState<Status>("estimated");
+  const [scrapNumber, setScrapNumber] = useState("");
+  const [quotationNumber, setQuotationNumber] = useState<string | null>(null);
 
   const [category, setCategory] = useState<"" | "Gold" | "Silver">("");
   const [scrapName, setScrapName] = useState("");
@@ -28,19 +52,23 @@ export default function EditScrapPage() {
         setCategory(data.category);
         setScrapName(data.scrap_name);
         setScrapWeight(String(data.scrap_weight));
-        setScrapLess(String(data.scrap_less));
-        setRate(String(data.rate));
+        setScrapLess(data.scrap_less != null ? String(data.scrap_less) : "0");
+        setRate(data.rate != null ? String(data.rate) : "");
+        setStatus(data.status);
+        setScrapNumber(data.scrap_number);
+        setQuotationNumber(data.quotation_number);
         setLoading(false);
       });
   }, [id]);
 
   const scrapWeightAfterLess = parseNum(scrapWeight) - parseNum(scrapLess);
   const total = scrapWeightAfterLess * parseNum(rate);
+  const locked = status === "locked";
 
-  async function handleSave() {
-    setSaving(true);
+  async function handleSave(mode: "draft" | "final") {
+    setSaving(mode);
     try {
-      await fetch(`/api/scraps/${id}`, {
+      const res = await fetch(`/api/scraps/${id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -51,11 +79,14 @@ export default function EditScrapPage() {
           scrapWeightAfterLess,
           rate: parseNum(rate),
           total,
+          markEstimated: mode === "final",
         }),
       });
-      router.push("/scrap");
+      if (res.ok) {
+        router.push("/scrap");
+      }
     } finally {
-      setSaving(false);
+      setSaving(null);
     }
   }
 
@@ -72,9 +103,34 @@ export default function EditScrapPage() {
 
   return (
     <div className="max-w-md mx-auto w-full px-4 py-8 flex flex-col gap-5">
-      <div>
-        <h1 className="heading text-2xl font-semibold">Edit Scrap</h1>
+      <div className="flex justify-between items-start">
+        <div>
+          <h1 className="heading text-2xl font-semibold">{scrapNumber}</h1>
+          {quotationNumber && (
+            <div className="text-sm mt-1" style={{ color: "var(--muted)" }}>
+              Quotation {quotationNumber}
+            </div>
+          )}
+        </div>
+        <span
+          className="text-xs font-medium px-2 py-1 rounded-full whitespace-nowrap"
+          style={{
+            background: STATUS_STYLE[status].bg,
+            color: STATUS_STYLE[status].color,
+          }}
+        >
+          {STATUS_STYLE[status].label}
+        </span>
       </div>
+
+      {locked && (
+        <div
+          className="card p-3 text-sm"
+          style={{ color: "var(--muted)" }}
+        >
+          This scrap's estimate is locked and can no longer be edited.
+        </div>
+      )}
 
       <div className="card p-4 flex flex-col gap-3">
         <div className="flex flex-col gap-1">
@@ -82,6 +138,7 @@ export default function EditScrapPage() {
           <select
             className="input-field"
             value={category}
+            disabled={locked}
             onChange={(e) =>
               setCategory(e.target.value as "" | "Gold" | "Silver")
             }
@@ -97,6 +154,7 @@ export default function EditScrapPage() {
           <input
             className="input-field"
             value={scrapName}
+            disabled={locked}
             onChange={(e) => setScrapName(e.target.value)}
             placeholder="e.g. Old Chain"
           />
@@ -107,6 +165,7 @@ export default function EditScrapPage() {
           <input
             className="input-field"
             value={scrapWeight}
+            disabled={locked}
             onChange={(e) => setScrapWeight(e.target.value)}
             placeholder="0.000"
             inputMode="decimal"
@@ -118,6 +177,7 @@ export default function EditScrapPage() {
           <input
             className="input-field"
             value={scrapLess}
+            disabled={locked}
             onChange={(e) => setScrapLess(e.target.value)}
             placeholder="0.000"
             inputMode="decimal"
@@ -141,6 +201,7 @@ export default function EditScrapPage() {
           <input
             className="input-field"
             value={rate}
+            disabled={locked}
             onChange={(e) => setRate(e.target.value)}
             inputMode="decimal"
           />
@@ -155,13 +216,40 @@ export default function EditScrapPage() {
         </div>
       </div>
 
-      <button
-        onClick={handleSave}
-        disabled={saving || !category || !scrapName || !scrapWeight}
-        className="btn-primary"
-      >
-        {saving ? "Saving..." : "Save Changes"}
-      </button>
+      {status === "pending" && (
+        <div className="flex gap-2">
+          <button
+            onClick={() => handleSave("draft")}
+            disabled={saving !== null || !category || !scrapName || !scrapWeight}
+            className="btn-secondary flex-1"
+          >
+            {saving === "draft" ? "Saving..." : "Save Draft"}
+          </button>
+          <button
+            onClick={() => handleSave("final")}
+            disabled={saving !== null || !(parseNum(rate) > 0)}
+            className="btn-primary flex-1"
+          >
+            {saving === "final" ? "Saving..." : "Mark as Estimated"}
+          </button>
+        </div>
+      )}
+
+      {status === "estimated" && (
+        <button
+          onClick={() => handleSave("final")}
+          disabled={saving !== null || !category || !scrapName || !scrapWeight}
+          className="btn-primary"
+        >
+          {saving === "final" ? "Saving..." : "Save Changes"}
+        </button>
+      )}
+
+      {locked && (
+        <Link href={`/scrap/${id}/print`} className="btn-primary text-center">
+          Print
+        </Link>
+      )}
     </div>
   );
 }

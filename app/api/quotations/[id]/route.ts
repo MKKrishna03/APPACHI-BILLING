@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { pool } from "@/lib/db";
+import { nextScrapNumber } from "@/lib/scrapNumber";
 
 export async function GET(
   _request: Request,
@@ -27,7 +28,12 @@ export async function GET(
     [id]
   );
 
-  return NextResponse.json({ ...rows[0], items });
+  const { rows: scraps } = await pool.query(
+    "select * from scraps where quotation_id = $1 order by created_at",
+    [id]
+  );
+
+  return NextResponse.json({ ...rows[0], items, scraps });
 }
 
 export async function DELETE(
@@ -45,7 +51,7 @@ export async function PATCH(
 ) {
   const { id } = await params;
   const body = await request.json();
-  const { items, gst, total, less, netTotal } = body;
+  const { items, gst, total, less, netTotal, scraps } = body;
 
   const client = await pool.connect();
   try {
@@ -89,6 +95,17 @@ export async function PATCH(
             item.gst,
             item.amount,
           ]
+        );
+      }
+    }
+
+    if (Array.isArray(scraps)) {
+      for (const scrap of scraps) {
+        const scrapNumber = await nextScrapNumber(client);
+        await client.query(
+          `insert into scraps (scrap_number, quotation_id, category, scrap_name, scrap_weight, status)
+           values ($1,$2,$3,$4,$5,'pending')`,
+          [scrapNumber, id, scrap.category, scrap.scrapName, scrap.scrapWeight]
         );
       }
     }

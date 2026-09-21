@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
+import { Suspense, useEffect, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 
 type Product = {
   id: string;
@@ -17,6 +17,42 @@ type CurrentRate = {
   gold_rate: string;
   silver_rate: string;
 } | null;
+
+type ScrapEntry = {
+  category: "" | "Gold" | "Silver";
+  scrapName: string;
+  scrapWeight: string;
+};
+
+type LinkedScrap = {
+  id: string;
+  category: string;
+  scrap_name: string;
+  scrap_weight: string;
+  status: "pending" | "estimated" | "locked";
+  total: string | null;
+};
+
+const SCRAP_STATUS_LABEL: Record<LinkedScrap["status"], string> = {
+  pending: "Pending",
+  estimated: "Estimated",
+  locked: "Locked",
+};
+
+const SCRAP_STATUS_STYLE: Record<LinkedScrap["status"], { background: string; color: string }> = {
+  pending: {
+    background: "color-mix(in srgb, var(--accent) 15%, transparent)",
+    color: "var(--accent)",
+  },
+  estimated: {
+    background: "color-mix(in srgb, #2f9e44 15%, transparent)",
+    color: "#2f9e44",
+  },
+  locked: {
+    background: "color-mix(in srgb, var(--primary) 15%, transparent)",
+    color: "var(--primary)",
+  },
+};
 
 type Item = {
   category: string;
@@ -37,15 +73,70 @@ function parseNum(value: string) {
   return isNaN(n) ? 0 : n;
 }
 
+function convertExistingItem(item: {
+  category: string;
+  product_id: string | null;
+  product_name: string;
+  purity: string | null;
+  weight: string;
+  wastage_percent: string;
+  wastage_weight: string;
+  rate: string;
+  mc: string;
+}): Item {
+  const w = Number(item.weight);
+  const wastageWt = Number(item.wastage_weight);
+  const r = Number(item.rate);
+  const mcNum = Number(item.mc);
+  const totalWeight = w + wastageWt;
+  const value = totalWeight * r;
+  const gstBase = value + mcNum;
+  const gst = gstBase * 0.03;
+  const amount = gstBase + gst;
+  return {
+    category: item.category,
+    productId: item.product_id ?? "",
+    productName: item.product_name,
+    purity: item.purity,
+    weight: w,
+    wastagePercent: Number(item.wastage_percent),
+    wastageWeight: wastageWt,
+    rate: r,
+    mc: mcNum,
+    gst,
+    amount,
+  };
+}
+
 export default function QuotationPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="max-w-md mx-auto w-full px-4 py-8" style={{ color: "var(--muted)" }}>
+          Loading...
+        </div>
+      }
+    >
+      <QuotationPageContent />
+    </Suspense>
+  );
+}
+
+function QuotationPageContent() {
   const router = useRouter();
-  const [quotationNumber, setQuotationNumber] = useState("");
+  const searchParams = useSearchParams();
+  const existingQuotationId = searchParams.get("quotationId");
+
+  const [quotationNumber, setQuotationNumber] = useState(
+    searchParams.get("quotationNumber") ?? ""
+  );
   const [products, setProducts] = useState<Product[]>([]);
   const [currentRate, setCurrentRate] = useState<CurrentRate>(null);
   const [saving, setSaving] = useState(false);
   const [less, setLess] = useState("");
   const [items, setItems] = useState<Item[]>([]);
   const [editingIndex, setEditingIndex] = useState<number | null>(null);
+  const [linkedScraps, setLinkedScraps] = useState<LinkedScrap[]>([]);
 
   const [category, setCategory] = useState<"" | "Gold" | "Silver">("");
   const [productId, setProductId] = useState("");
@@ -55,10 +146,24 @@ export default function QuotationPage() {
   const [rate, setRate] = useState("");
   const [mc, setMc] = useState("");
 
+  const [showScraps, setShowScraps] = useState(false);
+  const [scraps, setScraps] = useState<ScrapEntry[]>([]);
+
   useEffect(() => {
-    fetch("/api/quotations/next-number")
-      .then((res) => res.json())
-      .then((data) => setQuotationNumber(data.quotationNumber));
+    if (existingQuotationId) {
+      fetch(`/api/quotations/${existingQuotationId}`)
+        .then((res) => res.json())
+        .then((data) => {
+          setQuotationNumber(data.quotation_number);
+          setLess(data.less ?? "");
+          setItems((data.items ?? []).map(convertExistingItem));
+          setLinkedScraps(data.scraps ?? []);
+        });
+    } else {
+      fetch("/api/quotations/next-number")
+        .then((res) => res.json())
+        .then((data) => setQuotationNumber(data.quotationNumber));
+    }
 
     fetch("/api/products")
       .then((res) => res.json())
@@ -67,7 +172,7 @@ export default function QuotationPage() {
     fetch("/api/rates")
       .then((res) => res.json())
       .then((data) => setCurrentRate(data.current));
-  }, []);
+  }, [existingQuotationId]);
 
   useEffect(() => {
     if (!category) {
@@ -188,6 +293,31 @@ export default function QuotationPage() {
     if (editingIndex === index) setEditingIndex(null);
   }
 
+  function handleShowScraps() {
+    setShowScraps(true);
+    if (scraps.length === 0) {
+      setScraps([{ category: "", scrapName: "", scrapWeight: "" }]);
+    }
+  }
+
+  function handleAddScrapRow() {
+    setScraps((prev) => [...prev, { category: "", scrapName: "", scrapWeight: "" }]);
+  }
+
+  function updateScrap(index: number, patch: Partial<ScrapEntry>) {
+    setScraps((prev) =>
+      prev.map((scrap, i) => (i === index ? { ...scrap, ...patch } : scrap))
+    );
+  }
+
+  function handleRemoveScrap(index: number) {
+    setScraps((prev) => {
+      const next = prev.filter((_, i) => i !== index);
+      if (next.length === 0) setShowScraps(false);
+      return next;
+    });
+  }
+
   const itemsExcludingEdit = items.filter((_, i) => i !== editingIndex);
   const totalWeightSum =
     itemsExcludingEdit.reduce((sum, i) => sum + i.weight + i.wastageWeight, 0) +
@@ -196,7 +326,10 @@ export default function QuotationPage() {
     itemsExcludingEdit.reduce((sum, i) => sum + i.gst, 0) + pendingGst;
   const totalSum =
     itemsExcludingEdit.reduce((sum, i) => sum + i.amount, 0) + pendingAmount;
-  const netTotal = totalSum - parseNum(less);
+  const scrapTotal = linkedScraps
+    .filter((s) => s.status === "locked")
+    .reduce((sum, s) => sum + Number(s.total ?? 0), 0);
+  const netTotal = totalSum - parseNum(less) - scrapTotal;
 
   const pendingItem = buildItemFromEntry();
   const finalItems = pendingItem ? [...itemsExcludingEdit, pendingItem] : items;
@@ -205,17 +338,36 @@ export default function QuotationPage() {
     if (finalItems.length === 0) return;
     setSaving(true);
     try {
-      await fetch("/api/quotations", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          items: finalItems,
-          gst: gstSum,
-          total: totalSum,
-          less: parseNum(less),
-          netTotal,
-        }),
-      });
+      const validScraps = scraps
+        .filter((s) => s.category && s.scrapName && s.scrapWeight)
+        .map((s) => ({
+          category: s.category,
+          scrapName: s.scrapName,
+          scrapWeight: parseNum(s.scrapWeight),
+        }));
+
+      const payload = {
+        items: finalItems,
+        gst: gstSum,
+        total: totalSum,
+        less: parseNum(less),
+        netTotal,
+        scraps: validScraps,
+      };
+
+      if (existingQuotationId) {
+        await fetch(`/api/quotations/${existingQuotationId}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        });
+      } else {
+        await fetch("/api/quotations", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        });
+      }
       router.push("/");
     } finally {
       setSaving(false);
@@ -233,6 +385,26 @@ export default function QuotationPage() {
         </div>
       </div>
 
+      {linkedScraps.length > 0 && (
+        <div className="card p-4 flex flex-col gap-2">
+          <h3 className="text-sm font-semibold">Linked Scrap</h3>
+          {linkedScraps.map((s) => (
+            <div key={s.id} className="flex justify-between items-center text-sm">
+              <span>
+                {s.category} · {s.scrap_name} · {Number(s.scrap_weight).toFixed(3)} g
+                {s.status !== "pending" && ` · ₹${Number(s.total).toFixed(2)}`}
+              </span>
+              <span
+                className="text-xs font-medium px-2 py-1 rounded-full whitespace-nowrap"
+                style={SCRAP_STATUS_STYLE[s.status]}
+              >
+                {SCRAP_STATUS_LABEL[s.status]}
+              </span>
+            </div>
+          ))}
+        </div>
+      )}
+
       <div className="card p-4 flex flex-col gap-2">
         <div className="flex justify-between text-sm">
           <span style={{ color: "var(--muted)" }}>Total weight</span>
@@ -249,6 +421,12 @@ export default function QuotationPage() {
           <span>Total</span>
           <span>₹{totalSum.toFixed(2)}</span>
         </div>
+        {scrapTotal > 0 && (
+          <div className="flex justify-between text-sm">
+            <span style={{ color: "var(--muted)" }}>Scrap Value (Less)</span>
+            <span className="font-medium">-₹{scrapTotal.toFixed(2)}</span>
+          </div>
+        )}
         <div className="flex flex-col gap-1 pt-1">
           <label className="text-sm font-medium">Less</label>
           <input
@@ -445,6 +623,82 @@ export default function QuotationPage() {
               ))}
             </tbody>
           </table>
+        </div>
+      )}
+
+      {!showScraps && (
+        <button
+          onClick={handleShowScraps}
+          className="btn-secondary flex items-center justify-center gap-1"
+        >
+          <span className="text-lg leading-none">+</span> Add Scrap
+        </button>
+      )}
+
+      {showScraps && (
+        <div className="card p-4 flex flex-col gap-4 animate-scale-in">
+          <h3 className="text-sm font-semibold">Old Scrap</h3>
+
+          {scraps.map((scrap, index) => (
+            <div
+              key={index}
+              className="flex flex-col gap-3 border-t pt-3"
+              style={{ borderColor: "var(--border)" }}
+            >
+              <div className="flex flex-col gap-1">
+                <label className="text-sm font-medium">Scrap Type</label>
+                <select
+                  className="input-field"
+                  value={scrap.category}
+                  onChange={(e) =>
+                    updateScrap(index, {
+                      category: e.target.value as "" | "Gold" | "Silver",
+                    })
+                  }
+                >
+                  <option value="">Select type</option>
+                  <option value="Gold">Gold</option>
+                  <option value="Silver">Silver</option>
+                </select>
+              </div>
+
+              <div className="flex flex-col gap-1">
+                <label className="text-sm font-medium">Scrap Name</label>
+                <input
+                  className="input-field"
+                  value={scrap.scrapName}
+                  onChange={(e) =>
+                    updateScrap(index, { scrapName: e.target.value })
+                  }
+                  placeholder="e.g. Old Chain"
+                />
+              </div>
+
+              <div className="flex flex-col gap-1">
+                <label className="text-sm font-medium">Scrap Weight (g)</label>
+                <input
+                  className="input-field"
+                  value={scrap.scrapWeight}
+                  onChange={(e) =>
+                    updateScrap(index, { scrapWeight: e.target.value })
+                  }
+                  placeholder="0.000"
+                  inputMode="decimal"
+                />
+              </div>
+
+              <button
+                onClick={() => handleRemoveScrap(index)}
+                className="link-danger self-end text-sm"
+              >
+                Remove
+              </button>
+            </div>
+          ))}
+
+          <button onClick={handleAddScrapRow} className="btn-secondary">
+            + Add More Scrap
+          </button>
         </div>
       )}
 

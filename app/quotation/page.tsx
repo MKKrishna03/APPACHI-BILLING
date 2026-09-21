@@ -9,11 +9,20 @@ type QuotationItem = {
   weight: string | null;
 };
 
+type QuotationScrap = {
+  status: "pending" | "estimated" | "locked";
+  total: string | null;
+};
+
 type Quotation = {
   id: string;
   quotation_number: string;
   revision: number;
   items: QuotationItem[];
+  scraps: QuotationScrap[];
+  total: string | null;
+  less: string | null;
+  net_total: string | null;
 };
 
 function productSummary(items: QuotationItem[]) {
@@ -25,6 +34,23 @@ function productSummary(items: QuotationItem[]) {
 function weightSummary(items: QuotationItem[]) {
   const sum = items.reduce((total, i) => total + Number(i.weight || 0), 0);
   return sum.toFixed(3);
+}
+
+function scrapValue(scraps: QuotationScrap[]) {
+  return scraps
+    .filter((s) => s.status === "locked")
+    .reduce((sum, s) => sum + Number(s.total ?? 0), 0);
+}
+
+// True when a linked scrap was locked after this quotation was last
+// saved, so its stored net total doesn't reflect the scrap deduction yet.
+function needsScrapRefresh(q: Quotation) {
+  if (q.items.length === 0 || q.total == null) return false;
+  const scrapTotal = scrapValue(q.scraps);
+  if (scrapTotal <= 0) return false;
+  const expectedNet = Number(q.total) - Number(q.less ?? 0) - scrapTotal;
+  const storedNet = Number(q.net_total ?? 0);
+  return Math.abs(expectedNet - storedNet) > 0.01;
 }
 
 export default function QuotationMenuPage() {
@@ -46,6 +72,8 @@ export default function QuotationMenuPage() {
     loadQuotations();
   }, []);
 
+  const refreshCount = quotations.filter(needsScrapRefresh).length;
+
   async function handleDelete() {
     if (!deleteTarget) return;
     setDeleting(true);
@@ -62,13 +90,29 @@ export default function QuotationMenuPage() {
 
   return (
     <div className="max-w-4xl mx-auto w-full px-4 py-8 flex flex-col gap-4">
-      <Link href="/quotation/new" className="btn-primary text-center w-fit">
-        Create Quotation
-      </Link>
+      <div className="flex flex-wrap gap-3">
+        <Link href="/quotation/new" className="btn-primary text-center w-fit">
+          Create Quotation
+        </Link>
+        <Link href="/quotation/scrap-first" className="btn-secondary text-center w-fit">
+          Add Scrap First
+        </Link>
+      </div>
 
-      <h1 className="heading text-2xl font-semibold mt-4">
-        Saved Quotations
-      </h1>
+      <div className="flex items-center gap-3 mt-4">
+        <h1 className="heading text-2xl font-semibold">Saved Quotations</h1>
+        {refreshCount > 0 && (
+          <span
+            className="text-xs font-medium px-2 py-1 rounded-full whitespace-nowrap"
+            style={{
+              background: "color-mix(in srgb, var(--accent) 15%, transparent)",
+              color: "var(--accent)",
+            }}
+          >
+            {refreshCount} scrap{refreshCount > 1 ? "s" : ""} locked — needs update
+          </span>
+        )}
+      </div>
 
       <div className="card overflow-x-auto">
         <table className="w-full text-sm">
@@ -118,7 +162,22 @@ export default function QuotationMenuPage() {
                   className="px-4 py-2 font-medium"
                   style={{ color: "var(--primary)" }}
                 >
-                  {q.quotation_number}
+                  <div className="flex items-center gap-2">
+                    {q.quotation_number}
+                    {needsScrapRefresh(q) && (
+                      <span
+                        title="Scrap locked after this quotation was saved — reopen and save to update the net total"
+                        className="text-xs font-medium px-2 py-0.5 rounded-full whitespace-nowrap"
+                        style={{
+                          background:
+                            "color-mix(in srgb, var(--accent) 15%, transparent)",
+                          color: "var(--accent)",
+                        }}
+                      >
+                        Scrap Locked
+                      </span>
+                    )}
+                  </div>
                 </td>
                 <td className="px-4 py-2">
                   {String(q.revision).padStart(2, "0")}
@@ -157,21 +216,55 @@ export default function QuotationMenuPage() {
             <p className="text-sm" style={{ color: "var(--muted)" }}>
               What do you want to do with this quotation?
             </p>
+            {needsScrapRefresh(moveTarget) && (
+              <p
+                className="text-sm px-3 py-2 rounded-lg"
+                style={{
+                  background: "color-mix(in srgb, var(--accent) 12%, transparent)",
+                  color: "var(--accent)",
+                }}
+              >
+                Its scrap's final estimate was locked after this quotation was last saved — reopen and save to update the net total.
+              </p>
+            )}
             <div className="flex flex-col gap-2">
-              <button
-                onClick={() =>
-                  router.push(`/quotation/${moveTarget.id}?mode=edit`)
-                }
-                className="btn-secondary"
-              >
-                Edit
-              </button>
-              <button
-                onClick={() => router.push(`/quotation/${moveTarget.id}`)}
-                className="btn-primary"
-              >
-                Move to Next Quotation
-              </button>
+              {moveTarget.items.length === 0 ? (
+                <button
+                  onClick={() =>
+                    router.push(
+                      `/quotation/new?quotationId=${moveTarget.id}&quotationNumber=${encodeURIComponent(moveTarget.quotation_number)}`
+                    )
+                  }
+                  className="btn-primary"
+                >
+                  Add Products to Quotation
+                </button>
+              ) : (
+                <>
+                  <button
+                    onClick={() =>
+                      router.push(`/quotation/${moveTarget.id}?mode=edit`)
+                    }
+                    className="btn-secondary"
+                  >
+                    Edit
+                  </button>
+                  <button
+                    onClick={() => router.push(`/quotation/${moveTarget.id}`)}
+                    className="btn-primary"
+                  >
+                    Move to Next Quotation
+                  </button>
+                </>
+              )}
+              {moveTarget.items.length > 0 && (
+                <button
+                  onClick={() => router.push(`/quotation/${moveTarget.id}/print`)}
+                  className="btn-secondary"
+                >
+                  Print
+                </button>
+              )}
               <button
                 onClick={() =>
                   router.push(

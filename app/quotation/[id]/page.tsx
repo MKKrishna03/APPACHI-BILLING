@@ -15,6 +15,36 @@ type Item = {
   mc: string;
 };
 
+type LinkedScrap = {
+  id: string;
+  category: string;
+  scrap_name: string;
+  scrap_weight: string;
+  status: "pending" | "estimated" | "locked";
+  total: string | null;
+};
+
+const SCRAP_STATUS_LABEL: Record<LinkedScrap["status"], string> = {
+  pending: "Pending",
+  estimated: "Estimated",
+  locked: "Locked",
+};
+
+const SCRAP_STATUS_STYLE: Record<LinkedScrap["status"], { background: string; color: string }> = {
+  pending: {
+    background: "color-mix(in srgb, var(--accent) 15%, transparent)",
+    color: "var(--accent)",
+  },
+  estimated: {
+    background: "color-mix(in srgb, #2f9e44 15%, transparent)",
+    color: "#2f9e44",
+  },
+  locked: {
+    background: "color-mix(in srgb, var(--primary) 15%, transparent)",
+    color: "var(--primary)",
+  },
+};
+
 function parseNum(value: string) {
   const n = parseFloat(value);
   return isNaN(n) ? 0 : n;
@@ -31,6 +61,7 @@ export default function EditQuotationPage() {
   const [quotationNumber, setQuotationNumber] = useState("");
   const [less, setLess] = useState("");
   const [items, setItems] = useState<Item[]>([]);
+  const [linkedScraps, setLinkedScraps] = useState<LinkedScrap[]>([]);
 
   useEffect(() => {
     fetch(`/api/quotations/${id}`)
@@ -38,6 +69,7 @@ export default function EditQuotationPage() {
       .then((data) => {
         setQuotationNumber(data.quotation_number);
         setLess(isEditMode ? (data.less ?? "") : "");
+        setLinkedScraps(data.scraps ?? []);
 
         const nextItems: Item[] = data.items.map((item: any) => {
           const currentPct = Number(item.wastage_percent);
@@ -123,7 +155,10 @@ export default function EditQuotationPage() {
   );
   const gstSum = computedItems.reduce((sum, i) => sum + i.gst, 0);
   const totalSum = computedItems.reduce((sum, i) => sum + i.amount, 0);
-  const netTotal = totalSum - parseNum(less);
+  const scrapTotal = linkedScraps
+    .filter((s) => s.status === "locked")
+    .reduce((sum, s) => sum + Number(s.total ?? 0), 0);
+  const netTotal = totalSum - parseNum(less) - scrapTotal;
 
   async function handleSave() {
     setSaving(true);
@@ -179,6 +214,26 @@ export default function EditQuotationPage() {
         </div>
       </div>
 
+      {linkedScraps.length > 0 && (
+        <div className="card p-4 flex flex-col gap-2">
+          <h3 className="text-sm font-semibold">Linked Scrap</h3>
+          {linkedScraps.map((s) => (
+            <div key={s.id} className="flex justify-between items-center text-sm">
+              <span>
+                {s.category} · {s.scrap_name} · {Number(s.scrap_weight).toFixed(3)} g
+                {s.status !== "pending" && ` · ₹${Number(s.total).toFixed(2)}`}
+              </span>
+              <span
+                className="text-xs font-medium px-2 py-1 rounded-full whitespace-nowrap"
+                style={SCRAP_STATUS_STYLE[s.status]}
+              >
+                {SCRAP_STATUS_LABEL[s.status]}
+              </span>
+            </div>
+          ))}
+        </div>
+      )}
+
       <div className="card p-4 flex flex-col gap-2">
         <div className="flex justify-between text-sm">
           <span style={{ color: "var(--muted)" }}>Total weight</span>
@@ -195,6 +250,12 @@ export default function EditQuotationPage() {
           <span>Total</span>
           <span>₹{totalSum.toFixed(2)}</span>
         </div>
+        {scrapTotal > 0 && (
+          <div className="flex justify-between text-sm">
+            <span style={{ color: "var(--muted)" }}>Scrap Value (Less)</span>
+            <span className="font-medium">-₹{scrapTotal.toFixed(2)}</span>
+          </div>
+        )}
         <div className="flex flex-col gap-1 pt-1">
           <label className="text-sm font-medium">Less</label>
           <input
