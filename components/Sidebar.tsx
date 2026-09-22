@@ -76,10 +76,13 @@ export default function Sidebar() {
 
   return (
     <>
-      {/* Mobile toggle */}
+      {/* Mobile toggle — offset accounts for the header's own safe-area
+          padding (see layout.tsx), so it doesn't overlap under a status bar
+          inset instead of sitting just below the header. */}
       <button
         onClick={() => setOpen(true)}
-        className="sm:hidden fixed top-[68px] left-3 z-30 w-9 h-9 rounded-lg flex items-center justify-center card"
+        className="sm:hidden fixed left-3 z-30 w-9 h-9 rounded-lg flex items-center justify-center card"
+        style={{ top: "calc(env(safe-area-inset-top, 0px) + 68px)" }}
         aria-label="Open menu"
       >
         ☰

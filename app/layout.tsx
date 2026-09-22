@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import Link from "next/link";
 import { Geist, Geist_Mono, Playfair_Display } from "next/font/google";
 import RateBoard from "@/components/RateBoard";
@@ -26,6 +26,16 @@ export const metadata: Metadata = {
   description: "Quotation and billing system",
 };
 
+// viewportFit: "cover" lets the page draw under the status bar/notch (needed
+// when embedded edge-to-edge in the Stocks app's Capacitor WebView) and is
+// what makes env(safe-area-inset-top) resolve to a real value below, instead
+// of just 0 — without it the header's safe-area padding would be a no-op.
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  viewportFit: "cover",
+};
+
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
     <html
@@ -34,11 +44,15 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
     >
       <body className="min-h-full flex flex-col">
         <header
-          className="sticky top-0 z-40 flex items-center justify-between px-4 sm:px-6 py-3 border-b"
+          className="sticky top-0 z-40 flex items-center justify-between px-4 sm:px-6 pb-3 border-b"
           style={{
             background:
               "linear-gradient(to right, #2b2420, #3a2f26)",
             borderColor: "var(--primary)",
+            // Extends the header's solid background up under the status bar
+            // instead of app content merging with it, and keeps the actual
+            // title/rate-board row pushed below the status bar/notch.
+            paddingTop: "calc(env(safe-area-inset-top, 0px) + 0.75rem)",
           }}
         >
           <Link
