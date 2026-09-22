@@ -26,52 +26,53 @@ function separator(e: Encoder): Encoder {
   return e.line(dashLine());
 }
 
-// Label and value on the SAME line: label double-width/normal-height
-// (bold), value double-width/double-height (bold), pushed to the right
-// edge. Width-only scaling on the label gives it real extra size without
-// making it as tall as the value, keeping the two visually distinct.
-// Mixing sizes on one line works because width/height/bold are just
-// print-mode toggles that apply to whatever's printed next — they don't
-// require a line break, so this switches modes mid-line via .text()
-// instead of .line(), then ends with a single explicit newline. An empty
-// label just prints the value alone.
+// Label and value on the SAME line, with a guaranteed gap between them.
+// align("right") turned out to anchor the value to the true right edge of
+// the paper regardless of how much the label already printed — with a
+// long label + a wide double-size value, the two would end up touching
+// with zero gap (confirmed on an actual test print). Since label and
+// value are both width=2 here (only their *height* differs, which doesn't
+// affect horizontal character width), manual space-count padding lines
+// them up reliably instead — same trick as a monospace layout, just with
+// two different heights sharing one row.
 function printRow(e: Encoder, left: string, right: string): Encoder {
-  if (left) {
-    e = e.width(2).height(1).bold(true).text(" " + left).bold(false);
-  }
+  const label = left ? " " + left : "";
+  const gap = Math.max(2, COLUMNS - label.length - right.length);
   return e
-    .align("right")
     .width(2)
+    .height(1)
+    .bold(true)
+    .text(label)
+    .bold(false)
+    .text(" ".repeat(gap))
     .height(2)
     .bold(true)
     .text(right)
     .bold(false)
     .width(1)
     .height(1)
-    .align("left")
     .newline();
 }
 
 // Prints a headline figure much larger than the rest of the receipt — the
-// one number a customer actually needs to read at a glance. Label matches
-// printRow's sizing, then a value taller than the regular body text so it
-// still stands out from it.
+// one number a customer actually needs to read at a glance. Same manual-
+// gap technique as printRow, since it has the same same-line/same-width,
+// different-height layout.
 function printBigAmount(e: Encoder, label: string, value: string): Encoder {
+  const text = " " + label;
+  const gap = Math.max(2, COLUMNS - text.length - value.length);
   return e
     .width(2)
     .height(1)
     .bold(true)
-    .line(" " + label)
+    .text(text)
     .bold(false)
-    .align("right")
-    .width(2)
+    .text(" ".repeat(gap))
     .height(3)
     .bold(true)
-    .line(value)
+    .text(value)
     .bold(false)
-    .width(2)
     .height(2)
-    .align("left")
     .newline();
 }
 
