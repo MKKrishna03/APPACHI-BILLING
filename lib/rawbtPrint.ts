@@ -1,25 +1,64 @@
 import ReceiptPrinterEncoder from "@point-of-sale/receipt-printer-encoder";
 
-// 57mm thermal paper (matches the existing on-screen slip's `width: 57mm`)
-// prints about 32 characters per line at the printer's default font.
+// 32 columns is the documented standard for 58mm thermal paper at normal
+// font (confirmed this printer is 58mm) — the blank margin seen on a test
+// print isn't a column-count problem, it's the printer's own print head
+// being physically narrower than the paper roll, which is common on cheap
+// pocket thermal printers. Bigger/bolder text is what actually makes the
+// printed content visually use more of that width; a wider `columns` value
+// would just wrap or clip lines without a wider print head to back it up.
 const COLUMNS = 32;
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type Encoder = any;
 
 function n(value: string | number | null | undefined): number {
   const num = Number(value);
   return isNaN(num) ? 0 : num;
 }
 
-// Left/right justified line, e.g. "Rate                    1234.56".
-// Falls back to two lines instead of overlapping if it can't fit.
-function row(left: string, right: string, columns = COLUMNS): string {
-  if (left.length + right.length + 1 > columns) {
-    return left + "\n" + " ".repeat(Math.max(0, columns - right.length)) + right;
-  }
-  return left + " ".repeat(columns - left.length - right.length) + right;
-}
-
 function dashLine(columns = COLUMNS): string {
   return "-".repeat(columns);
+}
+
+// Prints "label ... value" on one line, with just the value in bold (bold
+// doesn't change character width, so this is safe with the column math).
+// Falls back to label / right-aligned bold value on two lines if it can't
+// fit on one — never overlaps or gets silently clipped.
+function printRow(e: Encoder, left: string, right: string, columns = COLUMNS): Encoder {
+  if (left.length + right.length + 1 > columns) {
+    return e
+      .line(left)
+      .align("right")
+      .bold(true)
+      .line(right)
+      .bold(false)
+      .align("left");
+  }
+  const pad = columns - left.length - right.length;
+  return e
+    .text(left)
+    .text(" ".repeat(pad))
+    .bold(true)
+    .text(right)
+    .bold(false)
+    .newline();
+}
+
+// Prints a headline figure much larger than the rest of the receipt — the
+// one number a customer actually needs to read at a glance.
+function printBigAmount(e: Encoder, label: string, value: string): Encoder {
+  return e
+    .bold(true)
+    .line(label)
+    .align("right")
+    .width(2)
+    .height(2)
+    .line(value)
+    .width(1)
+    .height(1)
+    .align("left")
+    .bold(false);
 }
 
 // Uint8Array -> base64, byte-safe (btoa() needs a binary string, so this
@@ -92,62 +131,54 @@ export function buildQuotationReceipt(data: QuotationReceiptData): Uint8Array {
   const oldScrapTotal = lockedScraps.reduce((sum, s) => sum + n(s.total), 0);
   const amount = newProductTotal - oldScrapTotal;
 
-  let e = new ReceiptPrinterEncoder({ columns: COLUMNS })
+  let e: Encoder = new ReceiptPrinterEncoder({ columns: COLUMNS })
     .initialize()
     .align("center")
     .bold(true)
     .line("APPACHI JEWELLERY")
     .bold(false)
-    .align("left")
-    .line(row("QUOTATION NUM", "DATE"))
-    .line(row(data.quotation_number, date))
-    .line(row("", time))
-    .line(dashLine());
+    .align("left");
+
+  e = printRow(e, "QUOTATION NUM", "DATE");
+  e = printRow(e, data.quotation_number, date);
+  e = printRow(e, "", time);
+  e = e.line(dashLine());
 
   for (const item of items) {
-    e = e
-      .line(row(item.product_name, n(item.weight).toFixed(3)))
-      .line(row("Wastage", n(item.wastage_weight).toFixed(3)));
+    e = printRow(e, item.product_name, n(item.weight).toFixed(3));
+    e = printRow(e, "Wastage", n(item.wastage_weight).toFixed(3));
   }
 
-  e = e
-    .line(dashLine())
-    .line(row("", totalWeight.toFixed(3)))
-    .line(row("Rate", rate.toFixed(2)))
-    .line(row("", value.toFixed(2)))
-    .line(row("MC", mcSum.toFixed(2)))
-    .line(row("GST 3%", gst.toFixed(2)))
-    .line(dashLine())
-    .line(row("", totalAfterGst.toFixed(2)))
-    .line(row("Less If", less.toFixed(2)))
-    .line(dashLine())
-    .line(row("", newProductTotal.toFixed(2)));
+  e = e.line(dashLine());
+  e = printRow(e, "", totalWeight.toFixed(3));
+  e = printRow(e, "Rate", rate.toFixed(2));
+  e = printRow(e, "", value.toFixed(2));
+  e = printRow(e, "MC", mcSum.toFixed(2));
+  e = printRow(e, "GST 3%", gst.toFixed(2));
+  e = e.line(dashLine());
+  e = printRow(e, "", totalAfterGst.toFixed(2));
+  e = printRow(e, "Less If", less.toFixed(2));
+  e = e.line(dashLine());
+  e = printRow(e, "", newProductTotal.toFixed(2));
 
   if (lockedScraps.length > 0) {
     e = e.align("center").line("SCRAP").align("left");
     for (const scrap of lockedScraps) {
-      e = e
-        .line(row(scrap.scrap_name, n(scrap.scrap_weight).toFixed(3)))
-        .line(row("Less", n(scrap.scrap_less).toFixed(3)))
-        .line(dashLine())
-        .line(row("", n(scrap.scrap_weight_after_less).toFixed(3)))
-        .line(row("", n(scrap.rate).toFixed(2)))
-        .line(row("", n(scrap.total).toFixed(2)));
+      e = printRow(e, scrap.scrap_name, n(scrap.scrap_weight).toFixed(3));
+      e = printRow(e, "Less", n(scrap.scrap_less).toFixed(3));
+      e = e.line(dashLine());
+      e = printRow(e, "", n(scrap.scrap_weight_after_less).toFixed(3));
+      e = printRow(e, "", n(scrap.rate).toFixed(2));
+      e = printRow(e, "", n(scrap.total).toFixed(2));
     }
   }
 
-  e = e
-    .line(dashLine())
-    .bold(true)
-    .line(row("NEW PRODUCT TOTAL", newProductTotal.toFixed(2)))
-    .line(row("OLD SCRAP TOTAL", oldScrapTotal.toFixed(2)))
-    .bold(false)
-    .line(dashLine())
-    .bold(true)
-    .line(row("AMOUNT", amount.toFixed(2)))
-    .bold(false)
-    .newline(3)
-    .cut();
+  e = e.line(dashLine());
+  e = printRow(e, "NEW PRODUCT TOTAL", newProductTotal.toFixed(2));
+  e = printRow(e, "OLD SCRAP TOTAL", oldScrapTotal.toFixed(2));
+  e = e.line(dashLine());
+  e = printBigAmount(e, "AMOUNT", amount.toFixed(2));
+  e = e.newline(3).cut();
 
   return e.encode();
 }
@@ -166,7 +197,7 @@ export type ScrapReceiptData = {
 
 // Mirrors app/scrap/[id]/print/page.tsx's on-screen slip layout.
 export function buildScrapReceipt(data: ScrapReceiptData): Uint8Array {
-  let e = new ReceiptPrinterEncoder({ columns: COLUMNS })
+  let e: Encoder = new ReceiptPrinterEncoder({ columns: COLUMNS })
     .initialize()
     .align("center")
     .bold(true)
@@ -174,26 +205,21 @@ export function buildScrapReceipt(data: ScrapReceiptData): Uint8Array {
     .bold(false)
     .line("Scrap Estimation Slip")
     .align("left")
-    .line(dashLine())
-    .line(row("Scrap No.", data.scrap_number));
+    .line(dashLine());
 
+  e = printRow(e, "Scrap No.", data.scrap_number);
   if (data.quotation_number) {
-    e = e.line(row("Quotation No.", data.quotation_number));
+    e = printRow(e, "Quotation No.", data.quotation_number);
   }
-
-  e = e
-    .line(row("Ornament Type", data.category))
-    .line(row("Scrap Name", data.scrap_name))
-    .line(row("Scrap Weight", n(data.scrap_weight).toFixed(3) + " g"))
-    .line(row("Less", n(data.scrap_less).toFixed(3) + " g"))
-    .line(row("Wt After Less", n(data.scrap_weight_after_less).toFixed(3) + " g"))
-    .line(row("Rate", n(data.rate).toFixed(2)))
-    .line(dashLine())
-    .bold(true)
-    .line(row("Total", n(data.total).toFixed(2)))
-    .bold(false)
-    .newline(3)
-    .cut();
+  e = printRow(e, "Ornament Type", data.category);
+  e = printRow(e, "Scrap Name", data.scrap_name);
+  e = printRow(e, "Scrap Weight", n(data.scrap_weight).toFixed(3) + " g");
+  e = printRow(e, "Less", n(data.scrap_less).toFixed(3) + " g");
+  e = printRow(e, "Wt After Less", n(data.scrap_weight_after_less).toFixed(3) + " g");
+  e = printRow(e, "Rate", n(data.rate).toFixed(2));
+  e = e.line(dashLine());
+  e = printBigAmount(e, "TOTAL", n(data.total).toFixed(2));
+  e = e.newline(3).cut();
 
   return e.encode();
 }
