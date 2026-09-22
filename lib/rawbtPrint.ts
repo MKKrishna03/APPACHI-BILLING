@@ -1,13 +1,14 @@
 import ReceiptPrinterEncoder from "@point-of-sale/receipt-printer-encoder";
 
-// 32 columns is the documented standard for 58mm thermal paper at normal
-// font (confirmed this printer is 58mm) — the blank margin seen on a test
-// print isn't a column-count problem, it's the printer's own print head
-// being physically narrower than the paper roll, which is common on cheap
-// pocket thermal printers. Bigger/bolder text is what actually makes the
-// printed content visually use more of that width; a wider `columns` value
-// would just wrap or clip lines without a wider print head to back it up.
-const COLUMNS = 32;
+// The store name header prints at normal width (32 cols fits it easily).
+// Everything else prints double-width (see `.width(2)` below) to actually
+// reach the printer's full physical width — confirmed 58mm/32-normal-cols
+// was leaving real unused paper on this specific printer, not just an
+// unavoidable head-width limit. Double-width halves the character budget
+// per line to 16, so labels routinely spill onto their own line before the
+// (bold, right-aligned) value — that's fine, more paper per slip is fine.
+const HEADER_COLUMNS = 32;
+const COLUMNS = 16;
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type Encoder = any;
@@ -24,20 +25,22 @@ function dashLine(columns = COLUMNS): string {
 // Prints "label ... value" on one line, with just the value in bold (bold
 // doesn't change character width, so this is safe with the column math).
 // Falls back to label / right-aligned bold value on two lines if it can't
-// fit on one — never overlaps or gets silently clipped.
+// fit on one — never overlaps or gets silently clipped. A one-space indent
+// on the label keeps content off the very edge of the paper.
 function printRow(e: Encoder, left: string, right: string, columns = COLUMNS): Encoder {
-  if (left.length + right.length + 1 > columns) {
+  const indented = " " + left;
+  if (indented.length + right.length + 1 > columns) {
     return e
-      .line(left)
+      .line(indented)
       .align("right")
       .bold(true)
       .line(right)
       .bold(false)
       .align("left");
   }
-  const pad = columns - left.length - right.length;
+  const pad = columns - indented.length - right.length;
   return e
-    .text(left)
+    .text(indented)
     .text(" ".repeat(pad))
     .bold(true)
     .text(right)
@@ -50,12 +53,12 @@ function printRow(e: Encoder, left: string, right: string, columns = COLUMNS): E
 function printBigAmount(e: Encoder, label: string, value: string): Encoder {
   return e
     .bold(true)
-    .line(label)
+    .line(" " + label)
     .align("right")
     .width(2)
     .height(2)
     .line(value)
-    .width(1)
+    .width(2)
     .height(1)
     .align("left")
     .bold(false);
@@ -132,17 +135,19 @@ export function buildQuotationReceipt(data: QuotationReceiptData): Uint8Array {
   const oldScrapTotal = lockedScraps.reduce((sum, s) => sum + n(s.total), 0);
   const amount = newProductTotal - oldScrapTotal;
 
-  let e: Encoder = new ReceiptPrinterEncoder({ columns: COLUMNS })
+  let e: Encoder = new ReceiptPrinterEncoder({ columns: HEADER_COLUMNS })
     .initialize()
     .align("center")
     .bold(true)
     .line("APPACHI JEWELLERY")
     .bold(false)
-    .align("left");
+    .align("left")
+    .width(2)
+    .height(1);
 
-  e = printRow(e, "QUOTATION NUM", "DATE");
-  e = printRow(e, data.quotation_number, date);
-  e = printRow(e, data.sales_person || "", time);
+  e = printRow(e, "Q No:", data.quotation_number);
+  e = e.line(" " + date + "  " + time);
+  e = printRow(e, "SALES PERSON NAME", data.sales_person || "");
   e = e.line(dashLine());
 
   for (const item of items) {
@@ -158,7 +163,7 @@ export function buildQuotationReceipt(data: QuotationReceiptData): Uint8Array {
   e = printRow(e, "GST 3%", gst.toFixed(2));
   e = e.line(dashLine());
   e = printRow(e, "", totalAfterGst.toFixed(2));
-  e = printRow(e, "Less If", less.toFixed(2));
+  e = printRow(e, "Less", less.toFixed(2));
   e = e.line(dashLine());
   e = printRow(e, "", newProductTotal.toFixed(2));
 
@@ -179,7 +184,7 @@ export function buildQuotationReceipt(data: QuotationReceiptData): Uint8Array {
   e = printRow(e, "OLD SCRAP TOTAL", oldScrapTotal.toFixed(2));
   e = e.line(dashLine());
   e = printBigAmount(e, "AMOUNT", amount.toFixed(2));
-  e = e.newline(3).cut();
+  e = e.width(1).height(1).newline(3).cut();
 
   return e.encode();
 }
@@ -198,7 +203,7 @@ export type ScrapReceiptData = {
 
 // Mirrors app/scrap/[id]/print/page.tsx's on-screen slip layout.
 export function buildScrapReceipt(data: ScrapReceiptData): Uint8Array {
-  let e: Encoder = new ReceiptPrinterEncoder({ columns: COLUMNS })
+  let e: Encoder = new ReceiptPrinterEncoder({ columns: HEADER_COLUMNS })
     .initialize()
     .align("center")
     .bold(true)
@@ -206,6 +211,8 @@ export function buildScrapReceipt(data: ScrapReceiptData): Uint8Array {
     .bold(false)
     .line("Scrap Estimation Slip")
     .align("left")
+    .width(2)
+    .height(1)
     .line(dashLine());
 
   e = printRow(e, "Scrap No.", data.scrap_number);
@@ -220,7 +227,7 @@ export function buildScrapReceipt(data: ScrapReceiptData): Uint8Array {
   e = printRow(e, "Rate", n(data.rate).toFixed(2));
   e = e.line(dashLine());
   e = printBigAmount(e, "TOTAL", n(data.total).toFixed(2));
-  e = e.newline(3).cut();
+  e = e.width(1).height(1).newline(3).cut();
 
   return e.encode();
 }

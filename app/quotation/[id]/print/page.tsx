@@ -91,11 +91,11 @@ export default function PrintQuotationPage() {
         </button>
       </div>
 
-      <div id="thermal-slip" className="border p-2 flex flex-col gap-1 font-mono text-[11px] leading-tight" style={{ borderColor: "var(--border)", width: "57mm" }}>
-        <Row left="QUOTATION NUM" right="DATE" bold />
-        <Row left={quotation.quotation_number} right={date} />
-        <Row left="SALES PERSON NAME" right="TIME" bold />
-        <Row left={quotation.sales_person || ""} right={time} />
+      <div id="thermal-slip" className="border p-3 flex flex-col gap-1.5 font-mono text-[13px] leading-tight" style={{ borderColor: "var(--border)", width: "57mm" }}>
+        <Row left="Q No:" right={quotation.quotation_number} bold />
+        <div>{date}&nbsp;&nbsp;{time}</div>
+        <Row left="SALES PERSON NAME" right="" bold />
+        <Row left={quotation.sales_person || ""} right="" />
 
         <Hr />
 
@@ -114,7 +114,7 @@ export default function PrintQuotationPage() {
         <Row left="GST 3%" right={gst.toFixed(2)} red />
         <Hr />
         <Row left="" right={totalAfterGst.toFixed(2)} bold />
-        <Row left="Less If" right={less.toFixed(2)} red />
+        <Row left="Less" right={less.toFixed(2)} red />
         <Hr />
         <Row left="" right={newProductTotal.toFixed(2)} bold />
 
