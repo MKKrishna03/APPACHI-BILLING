@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
+import { buildScrapReceipt, sendToRawBT } from "@/lib/rawbtPrint";
 
 type Scrap = {
   id: string;
@@ -37,12 +38,17 @@ export default function PrintScrapPage() {
 
   return (
     <div className="max-w-md mx-auto w-full px-4 py-8 flex flex-col gap-5">
-      <button
-        onClick={() => window.print()}
-        className="btn-primary print:hidden"
-      >
-        Print
-      </button>
+      <div className="flex gap-2 print:hidden">
+        <button onClick={() => window.print()} className="btn-secondary">
+          Print (Browser)
+        </button>
+        <button
+          onClick={() => sendToRawBT(buildScrapReceipt(scrap))}
+          className="btn-primary"
+        >
+          Print (Bluetooth)
+        </button>
+      </div>
 
       <div className="card p-6 flex flex-col gap-4">
         <div className="text-center border-b pb-3" style={{ borderColor: "var(--border)" }}>

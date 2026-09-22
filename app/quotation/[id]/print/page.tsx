@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
+import { buildQuotationReceipt, sendToRawBT } from "@/lib/rawbtPrint";
 
 type Item = {
   product_name: string;
@@ -77,9 +78,17 @@ export default function PrintQuotationPage() {
 
   return (
     <div className="max-w-md mx-auto w-full px-4 py-8 flex flex-col items-center gap-5">
-      <button onClick={() => window.print()} className="btn-primary print:hidden">
-        Print
-      </button>
+      <div className="flex gap-2 print:hidden">
+        <button onClick={() => window.print()} className="btn-secondary">
+          Print (Browser)
+        </button>
+        <button
+          onClick={() => sendToRawBT(buildQuotationReceipt(quotation))}
+          className="btn-primary"
+        >
+          Print (Bluetooth)
+        </button>
+      </div>
 
       <div id="thermal-slip" className="border p-2 flex flex-col gap-1 font-mono text-[11px] leading-tight" style={{ borderColor: "var(--border)", width: "57mm" }}>
         <Row left="QUOTATION NUM" right="DATE" bold />
