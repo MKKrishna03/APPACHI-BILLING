@@ -1,14 +1,13 @@
 import ReceiptPrinterEncoder from "@point-of-sale/receipt-printer-encoder";
 
 // Paper is a "79mm x 50mt" Star thermal roll — confirmed from the roll's
-// own label, not a guess this time. That's 80mm-class paper: 42-48 chars
-// at normal font is the documented standard, using 42 (the conservative
-// end) for the store name header. Everything else prints double-width
-// (see `.width(2)`) so it visibly uses more of that width — 21 cols there,
-// half of 42. This is a much wider budget than the 32/16 cols this was
-// originally (wrongly) sized for at an assumed 58mm.
-const HEADER_COLUMNS = 42;
-const COLUMNS = 21;
+// own label. That's 80mm-class paper: 42-48 chars at normal font is the
+// documented standard; using 48 (the top of that range) since 42 still
+// left visible unused width on a test print. Everything else prints at
+// double-width/double-height (see `.width(2).height(2)` below) so it
+// visibly uses more of that width — 24 cols there, half of 48.
+const HEADER_COLUMNS = 48;
+const COLUMNS = 24;
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type Encoder = any;
@@ -20,6 +19,12 @@ function n(value: string | number | null | undefined): number {
 
 function dashLine(columns = COLUMNS): string {
   return "-".repeat(columns);
+}
+
+// Section divider with a little breathing room above and below it, instead
+// of the next line butting straight up against the dashes.
+function separator(e: Encoder): Encoder {
+  return e.newline().line(dashLine()).newline();
 }
 
 // Prints "label ... value" on one line, with just the value in bold (bold
@@ -49,19 +54,21 @@ function printRow(e: Encoder, left: string, right: string, columns = COLUMNS): E
 }
 
 // Prints a headline figure much larger than the rest of the receipt — the
-// one number a customer actually needs to read at a glance.
+// one number a customer actually needs to read at a glance. Taller than the
+// body's own double-height default so it still stands out from it.
 function printBigAmount(e: Encoder, label: string, value: string): Encoder {
   return e
     .bold(true)
     .line(" " + label)
     .align("right")
     .width(2)
-    .height(2)
+    .height(3)
     .line(value)
     .width(2)
-    .height(1)
+    .height(2)
     .align("left")
-    .bold(false);
+    .bold(false)
+    .newline();
 }
 
 // Uint8Array -> base64, byte-safe (btoa() needs a binary string, so this
@@ -143,28 +150,28 @@ export function buildQuotationReceipt(data: QuotationReceiptData): Uint8Array {
     .bold(false)
     .align("left")
     .width(2)
-    .height(1);
+    .height(2);
 
   e = printRow(e, "Q No:", data.quotation_number);
   e = e.line(" " + date + "  " + time);
   e = printRow(e, "SALES PERSON NAME", data.sales_person || "");
-  e = e.line(dashLine());
+  e = separator(e);
 
   for (const item of items) {
     e = printRow(e, item.product_name, n(item.weight).toFixed(3));
     e = printRow(e, "Wastage", n(item.wastage_weight).toFixed(3));
   }
 
-  e = e.line(dashLine());
+  e = separator(e);
   e = printRow(e, "", totalWeight.toFixed(3));
   e = printRow(e, "Rate", rate.toFixed(2));
   e = printRow(e, "", value.toFixed(2));
   e = printRow(e, "MC", mcSum.toFixed(2));
   e = printRow(e, "GST 3%", gst.toFixed(2));
-  e = e.line(dashLine());
+  e = separator(e);
   e = printRow(e, "", totalAfterGst.toFixed(2));
   e = printRow(e, "Less", less.toFixed(2));
-  e = e.line(dashLine());
+  e = separator(e);
   e = printRow(e, "", newProductTotal.toFixed(2));
 
   if (lockedScraps.length > 0) {
@@ -172,17 +179,17 @@ export function buildQuotationReceipt(data: QuotationReceiptData): Uint8Array {
     for (const scrap of lockedScraps) {
       e = printRow(e, scrap.scrap_name, n(scrap.scrap_weight).toFixed(3));
       e = printRow(e, "Less", n(scrap.scrap_less).toFixed(3));
-      e = e.line(dashLine());
+      e = separator(e);
       e = printRow(e, "", n(scrap.scrap_weight_after_less).toFixed(3));
       e = printRow(e, "", n(scrap.rate).toFixed(2));
       e = printRow(e, "", n(scrap.total).toFixed(2));
     }
   }
 
-  e = e.line(dashLine());
+  e = separator(e);
   e = printRow(e, "NEW PRODUCT TOTAL", newProductTotal.toFixed(2));
   e = printRow(e, "OLD SCRAP TOTAL", oldScrapTotal.toFixed(2));
-  e = e.line(dashLine());
+  e = separator(e);
   e = printBigAmount(e, "AMOUNT", amount.toFixed(2));
   e = e.width(1).height(1).newline(3).cut();
 
@@ -212,8 +219,8 @@ export function buildScrapReceipt(data: ScrapReceiptData): Uint8Array {
     .line("Scrap Estimation Slip")
     .align("left")
     .width(2)
-    .height(1)
-    .line(dashLine());
+    .height(2);
+  e = separator(e);
 
   e = printRow(e, "Scrap No.", data.scrap_number);
   if (data.quotation_number) {
@@ -225,7 +232,7 @@ export function buildScrapReceipt(data: ScrapReceiptData): Uint8Array {
   e = printRow(e, "Less", n(data.scrap_less).toFixed(3) + " g");
   e = printRow(e, "Wt After Less", n(data.scrap_weight_after_less).toFixed(3) + " g");
   e = printRow(e, "Rate", n(data.rate).toFixed(2));
-  e = e.line(dashLine());
+  e = separator(e);
   e = printBigAmount(e, "TOTAL", n(data.total).toFixed(2));
   e = e.width(1).height(1).newline(3).cut();
 
