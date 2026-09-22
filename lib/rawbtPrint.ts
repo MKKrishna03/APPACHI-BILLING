@@ -3,10 +3,8 @@ import ReceiptPrinterEncoder from "@point-of-sale/receipt-printer-encoder";
 // Paper is a "79mm x 50mt" Star thermal roll (confirmed from the roll's own
 // label) — 80mm-class paper, so 48 columns (top of the documented 42-48
 // range) at normal width is used for the store name header and section
-// dividers. Values print double-width/double-height (see `.width(2)` /
-// `.height(2)` below), so 24 columns there — half of 48.
+// dividers.
 const HEADER_COLUMNS = 48;
-const COLUMNS = 24;
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type Encoder = any;
@@ -16,14 +14,22 @@ function n(value: string | number | null | undefined): number {
   return isNaN(num) ? 0 : num;
 }
 
-function dashLine(columns = COLUMNS): string {
+function dashLine(columns = HEADER_COLUMNS): string {
   return "-".repeat(columns);
 }
 
 // Section divider with a little breathing room above and below it, instead
-// of the next line butting straight up against the dashes.
+// of the next line butting straight up against the dashes. Used between
+// major blocks (items / totals / scrap) — not between every row, which is
+// what printRow's own tight leading covers.
 function separator(e: Encoder): Encoder {
   return e.newline().line(dashLine()).newline();
+}
+
+// A line snug against the row above it, no blank space either side —
+// e.g. the rule directly under Rate.
+function tightRule(e: Encoder): Encoder {
+  return e.width(1).height(1).line(dashLine());
 }
 
 // Small label on its own line, then the value — bold, noticeably larger,
@@ -34,7 +40,7 @@ function separator(e: Encoder): Encoder {
 // right-alignment instead. An empty label just skips straight to the value.
 function printRow(e: Encoder, left: string, right: string): Encoder {
   if (left) {
-    e = e.width(1).height(1).line(" " + left);
+    e = e.width(1).height(1).line(left);
   }
   return e
     .width(2)
@@ -46,26 +52,23 @@ function printRow(e: Encoder, left: string, right: string): Encoder {
     .align("left");
 }
 
-// Prints a headline figure much larger than the rest of the receipt — the
-// one number a customer actually needs to read at a glance. Small label,
-// same as printRow, then a value taller than the regular body text so it
-// still stands out from it.
+// Prints a headline figure on ONE line — small bold label on the left,
+// large bold value pushed to the right edge — instead of stacked, since
+// this is the one number that needs to read as a single glance-able line.
 function printBigAmount(e: Encoder, label: string, value: string): Encoder {
   return e
     .width(1)
     .height(1)
     .bold(true)
-    .line(" " + label)
-    .bold(false)
+    .text(label)
     .align("right")
     .width(2)
-    .height(3)
-    .bold(true)
-    .line(value)
-    .bold(false)
-    .width(2)
     .height(2)
+    .text(value)
+    .width(1)
+    .height(1)
     .align("left")
+    .bold(false)
     .newline();
 }
 
@@ -146,19 +149,24 @@ export function buildQuotationReceipt(data: QuotationReceiptData): Uint8Array {
     .bold(true)
     .line("APPACHI JEWELLERY")
     .bold(false)
-    .align("left");
+    .align("left")
+    // Font B instead of scaling Font A up/down further — a properly
+    // drawn smaller face reads better than stretching the same glyphs,
+    // and it's what actually makes the whole body "a little smaller"
+    // while keeping the label(1x)/value(2x) proportions intact.
+    .font("B");
 
   // Q No / date+time / sales person: one clean, consistently-indented,
-  // same-size block — no "SALES PERSON NAME" tag, just the name itself.
+  // same-size block. No "SALES PERSON NAME" tag — just the name itself.
   e = e
     .width(2)
     .height(2)
-    .text(" Q No: ")
+    .text("Q No: ")
     .bold(true)
     .line(data.quotation_number)
     .bold(false)
-    .line(" " + date + "  " + time)
-    .line(" " + (data.sales_person || ""));
+    .line(date + "  " + time)
+    .line(data.sales_person || "");
   e = separator(e);
 
   for (const item of items) {
@@ -169,6 +177,7 @@ export function buildQuotationReceipt(data: QuotationReceiptData): Uint8Array {
   e = separator(e);
   e = printRow(e, "", totalWeight.toFixed(3));
   e = printRow(e, "Rate", rate.toFixed(2));
+  e = tightRule(e);
   e = printRow(e, "", value.toFixed(2));
   e = printRow(e, "MC", mcSum.toFixed(2));
   e = printRow(e, "GST 3%", gst.toFixed(2));
@@ -191,10 +200,10 @@ export function buildQuotationReceipt(data: QuotationReceiptData): Uint8Array {
   }
 
   e = separator(e);
-  e = printRow(e, "NEW PRODUCT TOTAL", newProductTotal.toFixed(2));
-  e = printRow(e, "OLD SCRAP TOTAL", oldScrapTotal.toFixed(2));
+  e = printRow(e, "NEW", newProductTotal.toFixed(2));
+  e = printRow(e, "OLD", oldScrapTotal.toFixed(2));
   e = separator(e);
-  e = printBigAmount(e, "AMOUNT", amount.toFixed(2));
+  e = printBigAmount(e, "AMOUNT ", amount.toFixed(2));
   e = e.width(1).height(1).newline(3).cut();
 
   return e.encode();
@@ -221,7 +230,8 @@ export function buildScrapReceipt(data: ScrapReceiptData): Uint8Array {
     .line("APPACHI JEWELLERY")
     .bold(false)
     .line("Scrap Estimation Slip")
-    .align("left");
+    .align("left")
+    .font("B");
   e = separator(e);
 
   e = printRow(e, "Scrap No.", data.scrap_number);
@@ -234,8 +244,8 @@ export function buildScrapReceipt(data: ScrapReceiptData): Uint8Array {
   e = printRow(e, "Less", n(data.scrap_less).toFixed(3) + " g");
   e = printRow(e, "Wt After Less", n(data.scrap_weight_after_less).toFixed(3) + " g");
   e = printRow(e, "Rate", n(data.rate).toFixed(2));
-  e = separator(e);
-  e = printBigAmount(e, "TOTAL", n(data.total).toFixed(2));
+  e = tightRule(e);
+  e = printBigAmount(e, "TOTAL ", n(data.total).toFixed(2));
   e = e.width(1).height(1).newline(3).cut();
 
   return e.encode();

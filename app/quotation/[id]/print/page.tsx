@@ -91,18 +91,18 @@ export default function PrintQuotationPage() {
         </button>
       </div>
 
-      <div id="thermal-slip" className="border p-3 flex flex-col gap-2 font-mono text-[12px] leading-tight" style={{ borderColor: "var(--border)", width: "79mm" }}>
+      <div id="thermal-slip" className="border p-3 flex flex-col gap-1.5 font-mono text-[11px] leading-tight" style={{ borderColor: "var(--border)", width: "79mm" }}>
         <div className="flex items-baseline gap-1.5">
-          <span className="text-[11px] font-bold" style={{ color: "var(--muted)" }}>Q No:</span>
-          <span className="text-[15px] font-bold">{quotation.quotation_number}</span>
+          <span className="text-[10px] font-bold" style={{ color: "var(--muted)" }}>Q No:</span>
+          <span className="text-[14px] font-bold">{quotation.quotation_number}</span>
         </div>
-        <div className="text-[12px]">{date}&nbsp;&nbsp;{time}</div>
-        <div className="text-[14px]">{quotation.sales_person || ""}</div>
+        <div className="text-[11px]">{date}&nbsp;&nbsp;{time}</div>
+        <div className="text-[13px]">{quotation.sales_person || ""}</div>
 
         <Hr />
 
         {items.map((item, i) => (
-          <div key={i} className="flex flex-col gap-1">
+          <div key={i} className="flex flex-col gap-0.5">
             <Row left={item.product_name} right={n(item.weight).toFixed(3)} />
             <Row left="Wastage" right={n(item.wastage_weight).toFixed(3)} red />
           </div>
@@ -111,6 +111,7 @@ export default function PrintQuotationPage() {
         <Hr />
         <Row left="" right={totalWeight.toFixed(3)} bold />
         <Row left="Rate" right={rate.toFixed(2)} red />
+        <Hr />
         <Row left="" right={value.toFixed(2)} />
         <Row left="MC" right={mcSum.toFixed(2)} red />
         <Row left="GST 3%" right={gst.toFixed(2)} red />
@@ -124,7 +125,7 @@ export default function PrintQuotationPage() {
           <>
             <div className="text-center font-semibold mt-1">SCRAP</div>
             {lockedScraps.map((scrap, i) => (
-              <div key={i} className="flex flex-col gap-1">
+              <div key={i} className="flex flex-col gap-0.5">
                 <Row left={scrap.scrap_name} right={n(scrap.scrap_weight).toFixed(3)} />
                 <Row left="Less" right={n(scrap.scrap_less).toFixed(3)} red />
                 <Hr />
@@ -137,10 +138,13 @@ export default function PrintQuotationPage() {
         )}
 
         <Hr />
-        <Row left="NEW PRODUCT TOTAL" right={newProductTotal.toFixed(2)} bold />
-        <Row left="OLD SCRAP TOTAL" right={oldScrapTotal.toFixed(2)} bold />
+        <Row left="NEW" right={newProductTotal.toFixed(2)} bold />
+        <Row left="OLD" right={oldScrapTotal.toFixed(2)} bold />
         <Hr />
-        <Row left="AMOUNT" right={amount.toFixed(2)} bold />
+        <div className="flex justify-between items-baseline">
+          <span className="text-[11px] font-bold">AMOUNT</span>
+          <span className="text-[17px] font-bold">{amount.toFixed(2)}</span>
+        </div>
       </div>
     </div>
   );
@@ -160,12 +164,12 @@ function Row({
   return (
     <div className="flex flex-col items-end gap-0.5">
       {left && (
-        <span className="text-[10px] self-start" style={{ color: "var(--muted)" }}>
+        <span className="text-[9px] self-start" style={{ color: "var(--muted)" }}>
           {left}
         </span>
       )}
       <span
-        className={bold ? "text-[15px] font-bold" : "text-[14px] font-semibold"}
+        className={bold ? "text-[14px] font-bold" : "text-[13px] font-semibold"}
         style={red ? { color: "#c0392b" } : undefined}
       >
         {right}
