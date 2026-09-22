@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
+import CustomSelect from "@/components/CustomSelect";
 
 type Status = "pending" | "estimated" | "locked";
 
@@ -135,18 +136,16 @@ export default function EditScrapPage() {
       <div className="card p-4 flex flex-col gap-3">
         <div className="flex flex-col gap-1">
           <label className="text-sm font-medium">Ornament Type</label>
-          <select
-            className="input-field"
+          <CustomSelect
             value={category}
             disabled={locked}
-            onChange={(e) =>
-              setCategory(e.target.value as "" | "Gold" | "Silver")
-            }
-          >
-            <option value="">Select category</option>
-            <option value="Gold">Gold</option>
-            <option value="Silver">Silver</option>
-          </select>
+            onChange={(v) => setCategory(v as "" | "Gold" | "Silver")}
+            placeholder="Select category"
+            options={[
+              { value: "Gold", label: "Gold" },
+              { value: "Silver", label: "Silver" },
+            ]}
+          />
         </div>
 
         <div className="flex flex-col gap-1">

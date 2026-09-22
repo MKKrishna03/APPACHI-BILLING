@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import CustomSelect from "@/components/CustomSelect";
 
 type Product = {
   id: string;
@@ -151,31 +152,27 @@ export default function ProductsPage() {
       <div className="card flex flex-wrap gap-3 items-end p-4">
         <div className="flex flex-col gap-1">
           <label className="text-sm font-medium">Ornament Type</label>
-          <select
-            className="input-field"
+          <CustomSelect
             value={filterCategory}
-            onChange={(e) => setFilterCategory(e.target.value)}
-          >
-            <option value="">All</option>
-            <option value="Gold">Gold</option>
-            <option value="Silver">Silver</option>
-          </select>
+            onChange={setFilterCategory}
+            options={[
+              { value: "", label: "All" },
+              { value: "Gold", label: "Gold" },
+              { value: "Silver", label: "Silver" },
+            ]}
+          />
         </div>
 
         <div className="flex flex-col gap-1">
           <label className="text-sm font-medium">Product Group</label>
-          <select
-            className="input-field"
+          <CustomSelect
             value={filterGroup}
-            onChange={(e) => setFilterGroup(e.target.value)}
-          >
-            <option value="">All</option>
-            {groups.map((g) => (
-              <option key={g} value={g}>
-                {g}
-              </option>
-            ))}
-          </select>
+            onChange={setFilterGroup}
+            options={[
+              { value: "", label: "All" },
+              ...groups.map((g) => ({ value: g, label: g })),
+            ]}
+          />
         </div>
 
         <div className="flex gap-2 ml-auto flex-wrap">
@@ -236,19 +233,16 @@ export default function ProductsPage() {
 
           <div className="flex flex-col gap-1">
             <label className="text-sm font-medium">Ornament Type</label>
-            <select
-              className="input-field"
+            <CustomSelect
               value={form.category}
-              onChange={(e) =>
-                setForm({
-                  ...form,
-                  category: e.target.value as Product["category"],
-                })
+              onChange={(v) =>
+                setForm({ ...form, category: v as Product["category"] })
               }
-            >
-              <option value="Gold">Gold</option>
-              <option value="Silver">Silver</option>
-            </select>
+              options={[
+                { value: "Gold", label: "Gold" },
+                { value: "Silver", label: "Silver" },
+              ]}
+            />
           </div>
 
           <div className="flex flex-col gap-1">
