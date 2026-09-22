@@ -22,7 +22,7 @@ export async function GET() {
 
 export async function POST(request: Request) {
   const body = await request.json();
-  const { items, gst, total, less, netTotal, scraps } = body;
+  const { items, gst, total, less, netTotal, scraps, salesPerson } = body;
 
   if (!Array.isArray(items) || items.length === 0) {
     return NextResponse.json(
@@ -38,10 +38,10 @@ export async function POST(request: Request) {
     const quotationNumber = await nextQuotationNumber(client);
 
     const { rows: qRows } = await client.query(
-      `insert into quotations (quotation_number, gst, total, less, net_total, revision)
-       values ($1,$2,$3,$4,$5,1)
+      `insert into quotations (quotation_number, gst, total, less, net_total, revision, sales_person)
+       values ($1,$2,$3,$4,$5,1,$6)
        returning *`,
-      [quotationNumber, gst, total, less, netTotal]
+      [quotationNumber, gst, total, less, netTotal, salesPerson || null]
     );
     const quotation = qRows[0];
 

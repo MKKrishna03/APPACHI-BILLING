@@ -5,7 +5,7 @@ import { nextScrapNumber } from "@/lib/scrapNumber";
 
 export async function POST(request: Request) {
   const body = await request.json();
-  const { category, scrapName, scrapWeight } = body;
+  const { category, scrapName, scrapWeight, salesPerson } = body;
 
   if (!category || !scrapName || !scrapWeight) {
     return NextResponse.json(
@@ -21,10 +21,10 @@ export async function POST(request: Request) {
     const quotationNumber = await nextQuotationNumber(client);
 
     const { rows: qRows } = await client.query(
-      `insert into quotations (quotation_number, revision)
-       values ($1, 1)
+      `insert into quotations (quotation_number, revision, sales_person)
+       values ($1, 1, $2)
        returning *`,
-      [quotationNumber]
+      [quotationNumber, salesPerson || null]
     );
     const quotation = qRows[0];
 

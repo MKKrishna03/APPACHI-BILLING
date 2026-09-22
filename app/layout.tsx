@@ -3,6 +3,7 @@ import Link from "next/link";
 import { Geist, Geist_Mono, Playfair_Display } from "next/font/google";
 import RateBoard from "@/components/RateBoard";
 import Sidebar from "@/components/Sidebar";
+import StaffIdentityCapture from "@/components/StaffIdentityCapture";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -43,6 +44,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
       className={`${geistSans.variable} ${geistMono.variable} ${playfair.variable} h-full antialiased`}
     >
       <body className="min-h-full flex flex-col">
+        <StaffIdentityCapture />
         <header
           className="sticky top-0 z-40 flex items-center justify-between px-4 sm:px-6 pb-3 border-b"
           style={{

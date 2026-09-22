@@ -4,6 +4,7 @@ import { Suspense, useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import CustomSelect from "@/components/CustomSelect";
+import { getStaffName } from "@/lib/staffIdentity";
 
 type Product = {
   id: string;
@@ -455,7 +456,7 @@ function QuotationPageContent() {
         await fetch("/api/quotations", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(payload),
+          body: JSON.stringify({ ...payload, salesPerson: getStaffName() }),
         });
         resetForm();
         fetch("/api/quotations/next-number")

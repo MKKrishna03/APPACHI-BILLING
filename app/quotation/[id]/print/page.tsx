@@ -28,6 +28,7 @@ type Quotation = {
   gst: string;
   total: string;
   less: string | null;
+  sales_person: string | null;
   items: Item[];
   scraps: Scrap[];
 };
@@ -94,7 +95,7 @@ export default function PrintQuotationPage() {
         <Row left="QUOTATION NUM" right="DATE" bold />
         <Row left={quotation.quotation_number} right={date} />
         <Row left="SALES PERSON NAME" right="TIME" bold />
-        <Row left="" right={time} />
+        <Row left={quotation.sales_person || ""} right={time} />
 
         <Hr />
 

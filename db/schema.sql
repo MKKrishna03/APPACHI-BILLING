@@ -32,6 +32,7 @@ alter table quotations add column if not exists less numeric;
 alter table quotations add column if not exists net_total numeric;
 alter table quotations add column if not exists revision integer not null default 1;
 alter table quotations add column if not exists updated_at timestamptz not null default now();
+alter table quotations add column if not exists sales_person text;
 
 create table if not exists quotation_items (
   id uuid primary key default gen_random_uuid(),

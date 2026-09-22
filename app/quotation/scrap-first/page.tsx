@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import CustomSelect from "@/components/CustomSelect";
+import { getStaffName } from "@/lib/staffIdentity";
 
 function parseNum(value: string) {
   const n = parseFloat(value);
@@ -27,6 +28,7 @@ export default function ScrapFirstPage() {
           category,
           scrapName,
           scrapWeight: parseNum(scrapWeight),
+          salesPerson: getStaffName(),
         }),
       });
       if (res.ok) {

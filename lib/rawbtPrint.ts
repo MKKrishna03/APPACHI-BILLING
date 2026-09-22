@@ -107,6 +107,7 @@ export type QuotationReceiptData = {
   gst: string;
   total: string;
   less: string | null;
+  sales_person: string | null;
   items: QuotationReceiptItem[];
   scraps: QuotationReceiptScrap[];
 };
@@ -141,7 +142,7 @@ export function buildQuotationReceipt(data: QuotationReceiptData): Uint8Array {
 
   e = printRow(e, "QUOTATION NUM", "DATE");
   e = printRow(e, data.quotation_number, date);
-  e = printRow(e, "", time);
+  e = printRow(e, data.sales_person || "", time);
   e = e.line(dashLine());
 
   for (const item of items) {
