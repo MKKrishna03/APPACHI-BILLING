@@ -91,7 +91,7 @@ export default function PrintQuotationPage() {
         </button>
       </div>
 
-      <div id="thermal-slip" className="border p-3 flex flex-col gap-1.5 font-mono text-[13px] leading-tight" style={{ borderColor: "var(--border)", width: "57mm" }}>
+      <div id="thermal-slip" className="border p-3 flex flex-col gap-1.5 font-mono text-[13px] leading-tight" style={{ borderColor: "var(--border)", width: "79mm" }}>
         <Row left="Q No:" right={quotation.quotation_number} bold />
         <div>{date}&nbsp;&nbsp;{time}</div>
         <Row left="SALES PERSON NAME" right="" bold />

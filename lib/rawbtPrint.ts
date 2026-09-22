@@ -1,14 +1,14 @@
 import ReceiptPrinterEncoder from "@point-of-sale/receipt-printer-encoder";
 
-// The store name header prints at normal width (32 cols fits it easily).
-// Everything else prints double-width (see `.width(2)` below) to actually
-// reach the printer's full physical width — confirmed 58mm/32-normal-cols
-// was leaving real unused paper on this specific printer, not just an
-// unavoidable head-width limit. Double-width halves the character budget
-// per line to 16, so labels routinely spill onto their own line before the
-// (bold, right-aligned) value — that's fine, more paper per slip is fine.
-const HEADER_COLUMNS = 32;
-const COLUMNS = 16;
+// Paper is a "79mm x 50mt" Star thermal roll — confirmed from the roll's
+// own label, not a guess this time. That's 80mm-class paper: 42-48 chars
+// at normal font is the documented standard, using 42 (the conservative
+// end) for the store name header. Everything else prints double-width
+// (see `.width(2)`) so it visibly uses more of that width — 21 cols there,
+// half of 42. This is a much wider budget than the 32/16 cols this was
+// originally (wrongly) sized for at an assumed 58mm.
+const HEADER_COLUMNS = 42;
+const COLUMNS = 21;
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type Encoder = any;

@@ -140,7 +140,7 @@ body {
 
 @media print {
   @page {
-    size: 57mm auto;
+    size: 79mm auto;
     margin: 2mm;
   }
 
