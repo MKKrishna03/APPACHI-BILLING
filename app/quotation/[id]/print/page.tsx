@@ -91,7 +91,7 @@ export default function PrintQuotationPage() {
         </button>
       </div>
 
-      <div id="thermal-slip" className="border p-3 flex flex-col gap-2 font-mono text-[12px] leading-tight" style={{ borderColor: "var(--border)", width: "79mm" }}>
+      <div id="thermal-slip" className="border p-3 flex flex-col gap-1 font-mono text-[12px] leading-tight" style={{ borderColor: "var(--border)", width: "79mm" }}>
         <div className="flex items-baseline gap-1.5">
           <span className="text-[11px] font-bold" style={{ color: "var(--muted)" }}>Q No:</span>
           <span className="text-[15px] font-bold">{quotation.quotation_number}</span>
@@ -102,7 +102,7 @@ export default function PrintQuotationPage() {
         <Hr />
 
         {items.map((item, i) => (
-          <div key={i} className="flex flex-col gap-1">
+          <div key={i} className="flex flex-col gap-0.5">
             <Row left={item.product_name} right={n(item.weight).toFixed(3)} />
             <Row left="Wastage" right={n(item.wastage_weight).toFixed(3)} red />
           </div>
@@ -125,7 +125,7 @@ export default function PrintQuotationPage() {
           <>
             <div className="text-center font-semibold mt-1">SCRAP</div>
             {lockedScraps.map((scrap, i) => (
-              <div key={i} className="flex flex-col gap-1">
+              <div key={i} className="flex flex-col gap-0.5">
                 <Row left={scrap.scrap_name} right={n(scrap.scrap_weight).toFixed(3)} />
                 <Row left="Less" right={n(scrap.scrap_less).toFixed(3)} red />
                 <Hr />
@@ -161,7 +161,7 @@ function Row({
   return (
     <div className="flex items-baseline justify-between gap-2">
       {left && (
-        <span className="text-[12px] font-bold" style={{ color: "var(--muted)" }}>
+        <span className="text-[13px] font-bold" style={{ color: "var(--muted)" }}>
           {left}
         </span>
       )}
@@ -176,5 +176,5 @@ function Row({
 }
 
 function Hr() {
-  return <div className="border-t my-0.5" style={{ borderColor: "#000" }} />;
+  return <div className="border-t" style={{ borderColor: "#000" }} />;
 }

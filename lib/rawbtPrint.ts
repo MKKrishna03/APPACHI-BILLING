@@ -20,24 +20,24 @@ function dashLine(columns = COLUMNS): string {
   return "-".repeat(columns);
 }
 
-// Section divider with a little breathing room above and below it, instead
-// of the next line butting straight up against the dashes.
+// Plain section divider — no blank line above/below, sits snug against the
+// rows on either side of it.
 function separator(e: Encoder): Encoder {
-  return e.newline().line(dashLine()).newline();
+  return e.line(dashLine());
 }
 
-// Label and value on the SAME line: label at normal size (bold, for a
-// little more presence — ESC/POS sizing is integer multiples only, so
-// there's no step between "normal" and "double" to nudge it up by just a
-// little), value bold and double-size, pushed to the right edge. Mixing
-// sizes on one line works because width/height/bold are just print-mode
-// toggles that apply to whatever's printed next — they don't require a
-// line break, so this switches modes mid-line via .text() instead of
-// .line(), then ends with a single explicit newline. An empty label just
-// prints the value alone.
+// Label and value on the SAME line: label double-width/normal-height
+// (bold), value double-width/double-height (bold), pushed to the right
+// edge. Width-only scaling on the label gives it real extra size without
+// making it as tall as the value, keeping the two visually distinct.
+// Mixing sizes on one line works because width/height/bold are just
+// print-mode toggles that apply to whatever's printed next — they don't
+// require a line break, so this switches modes mid-line via .text()
+// instead of .line(), then ends with a single explicit newline. An empty
+// label just prints the value alone.
 function printRow(e: Encoder, left: string, right: string): Encoder {
   if (left) {
-    e = e.width(1).height(1).bold(true).text(" " + left).bold(false);
+    e = e.width(2).height(1).bold(true).text(" " + left).bold(false);
   }
   return e
     .align("right")
@@ -53,12 +53,12 @@ function printRow(e: Encoder, left: string, right: string): Encoder {
 }
 
 // Prints a headline figure much larger than the rest of the receipt — the
-// one number a customer actually needs to read at a glance. Small label,
-// same as printRow, then a value taller than the regular body text so it
+// one number a customer actually needs to read at a glance. Label matches
+// printRow's sizing, then a value taller than the regular body text so it
 // still stands out from it.
 function printBigAmount(e: Encoder, label: string, value: string): Encoder {
   return e
-    .width(1)
+    .width(2)
     .height(1)
     .bold(true)
     .line(" " + label)
