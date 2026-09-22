@@ -16,14 +16,19 @@ function n(value: string | number | null | undefined): number {
   return isNaN(num) ? 0 : num;
 }
 
-function dashLine(columns = COLUMNS): string {
+function dashLine(columns = HEADER_COLUMNS): string {
   return "-".repeat(columns);
 }
 
 // Plain section divider — no blank line above/below, sits snug against the
-// rows on either side of it.
+// rows on either side of it. Explicitly forces normal width/height and the
+// full HEADER_COLUMNS dash count, regardless of whatever size the row
+// before it left the printer in — printRow always resets to normal size
+// at its end, so relying on "whatever's active" previously meant this
+// printed only 24 (half-width) dashes at normal size instead of a
+// full-width line, stopping in the middle of the paper.
 function separator(e: Encoder): Encoder {
-  return e.line(dashLine());
+  return e.width(1).height(1).line(dashLine());
 }
 
 // Label and value on the SAME line, with a guaranteed gap between them.
