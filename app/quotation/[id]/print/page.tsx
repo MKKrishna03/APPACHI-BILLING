@@ -111,6 +111,7 @@ export default function PrintQuotationPage() {
         <Hr />
         <Row left="" right={totalWeight.toFixed(3)} bold />
         <Row left="Rate" right={rate.toFixed(2)} red />
+        <Hr />
         <Row left="" right={value.toFixed(2)} />
         <Row left="MC" right={mcSum.toFixed(2)} red />
         <Row left="GST 3%" right={gst.toFixed(2)} red />
@@ -158,14 +159,14 @@ function Row({
   red?: boolean;
 }) {
   return (
-    <div className="flex flex-col items-end gap-0.5">
+    <div className="flex items-baseline justify-between gap-2">
       {left && (
-        <span className="text-[10px] self-start" style={{ color: "var(--muted)" }}>
+        <span className="text-[12px] font-bold" style={{ color: "var(--muted)" }}>
           {left}
         </span>
       )}
       <span
-        className={bold ? "text-[15px] font-bold" : "text-[14px] font-semibold"}
+        className={bold ? "text-[15px] font-bold ml-auto" : "text-[14px] font-semibold ml-auto"}
         style={red ? { color: "#c0392b" } : undefined}
       >
         {right}

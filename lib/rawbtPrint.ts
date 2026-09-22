@@ -26,24 +26,30 @@ function separator(e: Encoder): Encoder {
   return e.newline().line(dashLine()).newline();
 }
 
-// Small label on its own line, then the value — bold, noticeably larger,
-// right-aligned — on the line below. Two different sizes can't reliably
-// share one line via character-count padding (a 1x-size label and a
-// 2x-size value don't occupy space in a way plain space-padding can
-// predict), so this always uses two lines and leans on the printer's own
-// right-alignment instead. An empty label just skips straight to the value.
+// Label and value on the SAME line: label at normal size (bold, for a
+// little more presence — ESC/POS sizing is integer multiples only, so
+// there's no step between "normal" and "double" to nudge it up by just a
+// little), value bold and double-size, pushed to the right edge. Mixing
+// sizes on one line works because width/height/bold are just print-mode
+// toggles that apply to whatever's printed next — they don't require a
+// line break, so this switches modes mid-line via .text() instead of
+// .line(), then ends with a single explicit newline. An empty label just
+// prints the value alone.
 function printRow(e: Encoder, left: string, right: string): Encoder {
   if (left) {
-    e = e.width(1).height(1).line(" " + left);
+    e = e.width(1).height(1).bold(true).text(" " + left).bold(false);
   }
   return e
+    .align("right")
     .width(2)
     .height(2)
-    .align("right")
     .bold(true)
-    .line(right)
+    .text(right)
     .bold(false)
-    .align("left");
+    .width(1)
+    .height(1)
+    .align("left")
+    .newline();
 }
 
 // Prints a headline figure much larger than the rest of the receipt — the
@@ -169,6 +175,7 @@ export function buildQuotationReceipt(data: QuotationReceiptData): Uint8Array {
   e = separator(e);
   e = printRow(e, "", totalWeight.toFixed(3));
   e = printRow(e, "Rate", rate.toFixed(2));
+  e = separator(e);
   e = printRow(e, "", value.toFixed(2));
   e = printRow(e, "MC", mcSum.toFixed(2));
   e = printRow(e, "GST 3%", gst.toFixed(2));
