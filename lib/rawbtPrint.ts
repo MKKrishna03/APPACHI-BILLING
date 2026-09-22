@@ -1,11 +1,10 @@
 import ReceiptPrinterEncoder from "@point-of-sale/receipt-printer-encoder";
 
-// Paper is a "79mm x 50mt" Star thermal roll — confirmed from the roll's
-// own label. That's 80mm-class paper: 42-48 chars at normal font is the
-// documented standard; using 48 (the top of that range) since 42 still
-// left visible unused width on a test print. Everything else prints at
-// double-width/double-height (see `.width(2).height(2)` below) so it
-// visibly uses more of that width — 24 cols there, half of 48.
+// Paper is a "79mm x 50mt" Star thermal roll (confirmed from the roll's own
+// label) — 80mm-class paper, so 48 columns (top of the documented 42-48
+// range) at normal width is used for the store name header and section
+// dividers. Values print double-width/double-height (see `.width(2)` /
+// `.height(2)` below), so 24 columns there — half of 48.
 const HEADER_COLUMNS = 48;
 const COLUMNS = 24;
 
@@ -27,47 +26,46 @@ function separator(e: Encoder): Encoder {
   return e.newline().line(dashLine()).newline();
 }
 
-// Prints "label ... value" on one line, with just the value in bold (bold
-// doesn't change character width, so this is safe with the column math).
-// Falls back to label / right-aligned bold value on two lines if it can't
-// fit on one — never overlaps or gets silently clipped. A one-space indent
-// on the label keeps content off the very edge of the paper.
-function printRow(e: Encoder, left: string, right: string, columns = COLUMNS): Encoder {
-  const indented = " " + left;
-  if (indented.length + right.length + 1 > columns) {
-    return e
-      .line(indented)
-      .align("right")
-      .bold(true)
-      .line(right)
-      .bold(false)
-      .align("left");
+// Small label on its own line, then the value — bold, noticeably larger,
+// right-aligned — on the line below. Two different sizes can't reliably
+// share one line via character-count padding (a 1x-size label and a
+// 2x-size value don't occupy space in a way plain space-padding can
+// predict), so this always uses two lines and leans on the printer's own
+// right-alignment instead. An empty label just skips straight to the value.
+function printRow(e: Encoder, left: string, right: string): Encoder {
+  if (left) {
+    e = e.width(1).height(1).line(" " + left);
   }
-  const pad = columns - indented.length - right.length;
   return e
-    .text(indented)
-    .text(" ".repeat(pad))
+    .width(2)
+    .height(2)
+    .align("right")
     .bold(true)
-    .text(right)
+    .line(right)
     .bold(false)
-    .newline();
+    .align("left");
 }
 
 // Prints a headline figure much larger than the rest of the receipt — the
-// one number a customer actually needs to read at a glance. Taller than the
-// body's own double-height default so it still stands out from it.
+// one number a customer actually needs to read at a glance. Small label,
+// same as printRow, then a value taller than the regular body text so it
+// still stands out from it.
 function printBigAmount(e: Encoder, label: string, value: string): Encoder {
   return e
+    .width(1)
+    .height(1)
     .bold(true)
     .line(" " + label)
+    .bold(false)
     .align("right")
     .width(2)
     .height(3)
+    .bold(true)
     .line(value)
+    .bold(false)
     .width(2)
     .height(2)
     .align("left")
-    .bold(false)
     .newline();
 }
 
@@ -148,13 +146,19 @@ export function buildQuotationReceipt(data: QuotationReceiptData): Uint8Array {
     .bold(true)
     .line("APPACHI JEWELLERY")
     .bold(false)
-    .align("left")
-    .width(2)
-    .height(2);
+    .align("left");
 
-  e = printRow(e, "Q No:", data.quotation_number);
-  e = e.line(" " + date + "  " + time);
-  e = printRow(e, "SALES PERSON NAME", data.sales_person || "");
+  // Q No / date+time / sales person: one clean, consistently-indented,
+  // same-size block — no "SALES PERSON NAME" tag, just the name itself.
+  e = e
+    .width(2)
+    .height(2)
+    .text(" Q No: ")
+    .bold(true)
+    .line(data.quotation_number)
+    .bold(false)
+    .line(" " + date + "  " + time)
+    .line(" " + (data.sales_person || ""));
   e = separator(e);
 
   for (const item of items) {
@@ -175,7 +179,7 @@ export function buildQuotationReceipt(data: QuotationReceiptData): Uint8Array {
   e = printRow(e, "", newProductTotal.toFixed(2));
 
   if (lockedScraps.length > 0) {
-    e = e.align("center").line("SCRAP").align("left");
+    e = e.width(1).height(1).align("center").line("SCRAP").align("left");
     for (const scrap of lockedScraps) {
       e = printRow(e, scrap.scrap_name, n(scrap.scrap_weight).toFixed(3));
       e = printRow(e, "Less", n(scrap.scrap_less).toFixed(3));
@@ -217,9 +221,7 @@ export function buildScrapReceipt(data: ScrapReceiptData): Uint8Array {
     .line("APPACHI JEWELLERY")
     .bold(false)
     .line("Scrap Estimation Slip")
-    .align("left")
-    .width(2)
-    .height(2);
+    .align("left");
   e = separator(e);
 
   e = printRow(e, "Scrap No.", data.scrap_number);
