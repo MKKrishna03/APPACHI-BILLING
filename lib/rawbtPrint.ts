@@ -35,11 +35,11 @@ function separator(e: Encoder): Encoder {
 // align("right") turned out to anchor the value to the true right edge of
 // the paper regardless of how much the label already printed — with a
 // long label + a wide double-size value, the two would end up touching
-// with zero gap (confirmed on an actual test print). Since label and
-// value are both width=2 here (only their *height* differs, which doesn't
-// affect horizontal character width), manual space-count padding lines
-// them up reliably instead — same trick as a monospace layout, just with
-// two different heights sharing one row.
+// with zero gap (confirmed on an actual test print). Label and value are
+// both width=2/height=1 here — same size, so manual space-count padding
+// lines them up reliably, same trick as a monospace layout. (Values used
+// to print at height=2, taller than the label; reduced to match after
+// feedback that the values read too large.)
 function printRow(e: Encoder, left: string, right: string): Encoder {
   const label = left ? " " + left : "";
   const gap = Math.max(2, COLUMNS - label.length - right.length);
@@ -50,7 +50,6 @@ function printRow(e: Encoder, left: string, right: string): Encoder {
     .text(label)
     .bold(false)
     .text(" ".repeat(gap))
-    .height(2)
     .bold(true)
     .text(right)
     .bold(false)
@@ -73,11 +72,11 @@ function printBigAmount(e: Encoder, label: string, value: string): Encoder {
     .text(text)
     .bold(false)
     .text(" ".repeat(gap))
-    .height(3)
+    .height(2)
     .bold(true)
     .text(value)
     .bold(false)
-    .height(2)
+    .height(1)
     .newline();
 }
 

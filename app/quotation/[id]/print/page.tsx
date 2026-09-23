@@ -166,7 +166,7 @@ function Row({
         </span>
       )}
       <span
-        className={bold ? "text-[15px] font-bold ml-auto" : "text-[14px] font-semibold ml-auto"}
+        className={bold ? "text-[14px] font-bold ml-auto" : "text-[13px] font-semibold ml-auto"}
         style={red ? { color: "#c0392b" } : undefined}
       >
         {right}
