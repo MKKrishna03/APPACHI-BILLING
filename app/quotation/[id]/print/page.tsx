@@ -93,11 +93,11 @@ export default function PrintQuotationPage() {
 
       <div id="thermal-slip" className="border p-3 flex flex-col gap-1 font-mono text-[12px] leading-tight" style={{ borderColor: "var(--border)", width: "79mm" }}>
         <div className="flex items-baseline gap-1.5">
-          <span className="text-[11px] font-bold" style={{ color: "var(--muted)" }}>Q No:</span>
-          <span className="text-[15px] font-bold">{quotation.quotation_number}</span>
+          <span className="text-[10px] font-bold" style={{ color: "var(--muted)" }}>Q No:</span>
+          <span className="text-[13px] font-bold">{quotation.quotation_number}</span>
         </div>
-        <div className="text-[12px]">{date}&nbsp;&nbsp;{time}</div>
-        <div className="text-[14px]">{quotation.sales_person || ""}</div>
+        <div className="text-[11px]">{date}&nbsp;&nbsp;{time}</div>
+        <div className="text-[12px]">{quotation.sales_person || ""}</div>
 
         <Hr />
 

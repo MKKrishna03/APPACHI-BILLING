@@ -3,8 +3,8 @@ import ReceiptPrinterEncoder from "@point-of-sale/receipt-printer-encoder";
 // Paper is a "79mm x 50mt" Star thermal roll (confirmed from the roll's own
 // label) — 80mm-class paper, so 48 columns (top of the documented 42-48
 // range) at normal width is used for the store name header and section
-// dividers. Values print double-width/double-height (see `.width(2)` /
-// `.height(2)` below), so 24 columns there — half of 48.
+// dividers. Body rows (labels, values, Q No/date/name) all print at
+// double-width (see `.width(2)` below), so 24 columns there — half of 48.
 const HEADER_COLUMNS = 48;
 const COLUMNS = 24;
 
@@ -163,7 +163,7 @@ export function buildQuotationReceipt(data: QuotationReceiptData): Uint8Array {
   // same-size block — no "SALES PERSON NAME" tag, just the name itself.
   e = e
     .width(2)
-    .height(2)
+    .height(1)
     .text(" Q No: ")
     .bold(true)
     .line(data.quotation_number)
